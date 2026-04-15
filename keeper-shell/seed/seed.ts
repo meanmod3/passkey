@@ -48,6 +48,57 @@ async function main(): Promise<void> {
   ]);
 
   console.log('[seed] creating records...');
+
+  /**
+   * Hospital-system record titles sourced from the reference screenshots.
+   * Each string is the display name the user sees in the records list.
+   * 23 records total — distributed round-robin across the 4 environments
+   * and the 2 approver users so every environment + owner has representation.
+   * The trailing "/N/M/..." segments are ticket/reference IDs kept inline
+   * with the hospital name, matching the reference data.
+   */
+  const HOSPITAL_RECORD_NAMES: string[] = [
+    'Ardent 3817/4049/4316/4561',
+    'Arnot Health 4690/5064/5152/5153',
+    'Aspirus 5324/5325',
+    'Aspirus Health 5390',
+    'Aspuris Health 5397',
+    'Atrium / Navicent 3070/3773/3971/4305/4351/4672/4785/5192',
+    'Baptist Health South Florida 2978/3348/3425/3946/4218/4244/4312/4413',
+    'Barnabas 2667/2746/4761/2805/2860/2927/2995/3175/4062/4071',
+    'Catholic Health Systems of Long Island 3186/4302/5289/5290',
+    'Cayuga 5228/5229',
+    'Centra Health 2461/2587/2649/3352/3353/3432/3433/5147/5400',
+    'Central Maine Healthcare 3415/3853',
+    'Charter Communication 4150',
+    'CHI - Clinical Engineering 2954/3328/3419',
+    "Children's National Hospital 4966/4967/5248",
+    'Cleveland Clinic Foundation 3030/3391/3676/4700',
+    'Integris Health 5017',
+    'Intermountain Healthcare 3038',
+    'IU - Indiana University Health 4368',
+    'Johns Hopkins 3967',
+    'Jupiter Medical Center 5434',
+    'Kaiser 3818',
+    'Kaleida 3825/5401',
+  ];
+
+  const ENV_ROTATION: Environment[] = [
+    Environment.PRODUCTION,
+    Environment.STAGING,
+    Environment.DEVELOPMENT,
+    Environment.SHARED,
+  ];
+  const OWNER_ROTATION: string[] = [carol.id, dave.id];
+
+  /**
+   * Derive a short, stable slug from a record name. systemName / keeperRecordUid
+   * are no longer surfaced in the UI but are still used by search and by the
+   * Keeper integration seam — keeping them meaningful helps debugging.
+   */
+  const toSlug = (s: string, maxLen = 40): string =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, maxLen) || 'record';
+
   const recordSeeds: Array<{
     name: string;
     systemName: string;
@@ -55,18 +106,20 @@ async function main(): Promise<void> {
     status: RecordStatus;
     ownerId: string;
     keeperRecordUid: string;
-  }> = [
-    { name: 'Billing DB prod-admin', systemName: 'billing-db-01', environment: Environment.PRODUCTION, status: RecordStatus.AVAILABLE, ownerId: carol.id, keeperRecordUid: 'kpr-billing-prod' },
-    { name: 'Auth Service prod-root', systemName: 'auth-svc', environment: Environment.PRODUCTION, status: RecordStatus.LOCKED, ownerId: dave.id, keeperRecordUid: 'kpr-auth-prod' },
-    { name: 'CRM Read Replica', systemName: 'crm-replica-02', environment: Environment.PRODUCTION, status: RecordStatus.AVAILABLE, ownerId: carol.id, keeperRecordUid: 'kpr-crm-prod' },
-    { name: 'Analytics Warehouse', systemName: 'snowflake-wh', environment: Environment.PRODUCTION, status: RecordStatus.AVAILABLE, ownerId: dave.id, keeperRecordUid: 'kpr-wh-prod' },
-    { name: 'Payments Gateway staging', systemName: 'stripe-test', environment: Environment.STAGING, status: RecordStatus.AVAILABLE, ownerId: carol.id, keeperRecordUid: 'kpr-pay-stg' },
-    { name: 'Search Cluster staging', systemName: 'elastic-stg', environment: Environment.STAGING, status: RecordStatus.AVAILABLE, ownerId: dave.id, keeperRecordUid: 'kpr-search-stg' },
-    { name: 'Dev Postgres', systemName: 'pg-dev-main', environment: Environment.DEVELOPMENT, status: RecordStatus.AVAILABLE, ownerId: carol.id, keeperRecordUid: 'kpr-pg-dev' },
-    { name: 'Dev Redis', systemName: 'redis-dev-01', environment: Environment.DEVELOPMENT, status: RecordStatus.AVAILABLE, ownerId: dave.id, keeperRecordUid: 'kpr-redis-dev' },
-    { name: 'CI Secrets Vault', systemName: 'ci-vault', environment: Environment.SHARED, status: RecordStatus.AVAILABLE, ownerId: carol.id, keeperRecordUid: 'kpr-ci-shared' },
-    { name: 'Monitoring Datadog', systemName: 'dd-admin', environment: Environment.SHARED, status: RecordStatus.AVAILABLE, ownerId: dave.id, keeperRecordUid: 'kpr-dd-shared' },
-  ];
+  }> = HOSPITAL_RECORD_NAMES.map((name, i) => {
+    const slug = toSlug(name);
+    return {
+      name,
+      systemName: slug,
+      environment: ENV_ROTATION[i % ENV_ROTATION.length],
+      // One LOCKED record for status-variety in the vault view; everything
+      // else starts AVAILABLE. Historical/active/pending seeds further down
+      // will flip specific records to LEASED / PENDING_APPROVAL.
+      status: i === 12 ? RecordStatus.LOCKED : RecordStatus.AVAILABLE,
+      ownerId: OWNER_ROTATION[i % OWNER_ROTATION.length],
+      keeperRecordUid: `kpr-${slug}`,
+    };
+  });
 
   const records = [];
   for (const seed of recordSeeds) {
