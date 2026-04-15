@@ -23,6 +23,8 @@ export async function listRecords(query: ListRecordsQuery) {
     where.OR = [
       { name: { contains: query.q, mode: 'insensitive' } },
       { systemName: { contains: query.q, mode: 'insensitive' } },
+      { owner: { is: { displayName: { contains: query.q, mode: 'insensitive' } } } },
+      { owner: { is: { email: { contains: query.q, mode: 'insensitive' } } } },
     ];
   }
 

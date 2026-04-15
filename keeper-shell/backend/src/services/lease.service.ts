@@ -58,13 +58,13 @@ export async function startLease(params: {
     action: 'LEASE_STARTED',
     actorId: params.approverId,
     requestId: updated.id,
-    detail: `expires=${leaseExpiresAt.toISOString()}`,
+    detail: `durationMin=${params.durationMinutes} expires=${leaseExpiresAt.toISOString()}`,
   });
   await writeAuditEvent({
     action: 'SHARE_ISSUED',
     actorId: params.approverId,
     requestId: updated.id,
-    detail: `shareLink=${share.shareLink}`,
+    detail: `ttlMin=${params.durationMinutes} shareLink=${share.shareLink}`,
   });
 
   await notificationService.sendShareLink({

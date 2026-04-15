@@ -12,6 +12,8 @@ import {
   ChevronDown20Filled,
   Database20Regular,
   ArrowSortDown20Regular,
+  ArrowSortUp20Regular,
+  Info16Regular,
 } from '@fluentui/react-icons';
 import { TeamsUserPill } from '../components/TeamsUserPill';
 import type { Environment, RecordDTO } from '@keeper-shell/shared';
@@ -36,11 +38,22 @@ const ENV_LABEL: Record<Environment, string> = {
   SHARED: 'Shared',
 };
 
+/** All six record statuses, ordered for the Status Key legend. */
+const STATUS_KEY_ORDER = [
+  'AVAILABLE',
+  'PENDING_APPROVAL',
+  'LEASED',
+  'RENEWAL_PENDING',
+  'EXPIRED',
+  'LOCKED',
+] as const;
+
 export function RecordsPage(): JSX.Element {
   const [records, setRecords] = useState<RecordDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [expanded, setExpanded] = useState<Set<Environment>>(() => new Set<Environment>());
   const [refreshKey, setRefreshKey] = useState(0);
   const currentUser = useAuthStore((s) => s.user);
@@ -81,11 +94,13 @@ export function RecordsPage(): JSX.Element {
       map.set(r.environment, list);
     }
     for (const [env, list] of map) {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) =>
+        sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name),
+      );
       map.set(env, list);
     }
     return map;
-  }, [records]);
+  }, [records, sortDir]);
 
   const selected = useMemo(
     () => records.find((r) => r.id === selectedId) ?? null,
@@ -112,7 +127,7 @@ export function RecordsPage(): JSX.Element {
               contentAfter={search ? (
                 <Button appearance="transparent" size="small" icon={<Dismiss24Regular />} onClick={() => setSearch('')} />
               ) : undefined}
-              placeholder="Search"
+              placeholder="Search by record name or owner"
               className="!w-full ks-search"
               value={search}
               onChange={(_e, d) => setSearch(d.value)}
@@ -120,9 +135,12 @@ export function RecordsPage(): JSX.Element {
           </div>
           <button
             type="button"
+            aria-label={`Sort by name, ${sortDir === 'asc' ? 'A to Z' : 'Z to A'}`}
+            title={`Sort by name — click to toggle (currently ${sortDir === 'asc' ? 'A → Z' : 'Z → A'})`}
+            onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
             className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
           >
-            Sort by Name <ArrowSortDown20Regular />
+            Sort by Name {sortDir === 'asc' ? <ArrowSortDown20Regular /> : <ArrowSortUp20Regular />}
           </button>
         </div>
 
@@ -179,6 +197,15 @@ export function RecordsPage(): JSX.Element {
             </ul>
           )}
         </div>
+
+        {/* Vault footer — total record count (bottom-left) + Status Key (bottom-right) */}
+        <div className="shrink-0 border-t border-[var(--border)] px-6 py-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+          <span aria-live="polite">
+            {records.length} {records.length === 1 ? 'record' : 'records'}
+            {search.trim() ? ' matching search' : ''}
+          </span>
+          <StatusKey />
+        </div>
       </div>
 
       {/* Right panel — sibling of the vault column, spans the full page height */}
@@ -202,6 +229,37 @@ export function RecordsPage(): JSX.Element {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Legend of all six Record.status values + their StatusDot colors.
+ * Bottom-right of the Records center body. Hover (or keyboard focus) reveals
+ * the full key via Fluent Tooltip.
+ */
+function StatusKey(): JSX.Element {
+  const keyBody = (
+    <ul className="list-none m-0 p-0 space-y-1 min-w-[10rem]">
+      {STATUS_KEY_ORDER.map((s) => (
+        <li key={s} className="flex items-center gap-2 text-xs">
+          <StatusDot status={s} size={10} />
+          <span className="font-mono text-[11px] text-[var(--text-muted)]">{s}</span>
+          <span className="ml-auto text-[11px]">{statusLabel(s)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+  return (
+    <Tooltip content={keyBody} relationship="description" positioning="above-end" withArrow>
+      <button
+        type="button"
+        aria-label="Show status key"
+        className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)]"
+      >
+        <Info16Regular />
+        <span>Status key</span>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -321,7 +379,7 @@ function RecordRow({
         {/* Borrower avatar + inline countdown — only when borrower viewership is allowed */}
         {isUnavailable && lease?.requester && borrowerVisible && (
           <div className="hidden md:flex items-center gap-2 shrink-0">
-            <TeamsUserPill user={lease.requester} size={20} showName={false} />
+            <TeamsUserPill user={lease.requester} size={32} showName={false} />
             <InlineCountdown record={record} />
           </div>
         )}
