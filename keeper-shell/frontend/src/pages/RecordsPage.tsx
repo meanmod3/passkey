@@ -40,13 +40,13 @@ const RIGHT_PANEL_MIN = 320;
 const RIGHT_PANEL_MAX = 720;
 const RIGHT_PANEL_DEFAULT = 420;
 
-const ENV_ORDER: Environment[] = ['PRODUCTION', 'STAGING', 'DEVELOPMENT', 'SHARED'];
+const ENV_ORDER: Environment[] = ['SHARED', 'POD', 'PHARMACY', 'WIKI'];
 
 const ENV_LABEL: Record<Environment, string> = {
-  PRODUCTION: 'Production',
-  STAGING: 'Staging',
-  DEVELOPMENT: 'Development',
   SHARED: 'Shared',
+  POD: 'Pod',
+  PHARMACY: 'Pharmacy',
+  WIKI: 'Wiki',
 };
 
 /**

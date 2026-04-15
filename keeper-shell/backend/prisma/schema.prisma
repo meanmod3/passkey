@@ -51,10 +51,10 @@ model Record {
 }
 
 enum Environment {
-  PRODUCTION
-  STAGING
-  DEVELOPMENT
   SHARED
+  POD
+  PHARMACY
+  WIKI
 }
 
 enum RecordStatus {

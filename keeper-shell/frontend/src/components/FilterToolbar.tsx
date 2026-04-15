@@ -15,10 +15,10 @@ export type StatusFilter = 'ALL' | RecordStatus;
 
 const ENV_OPTIONS: Array<{ value: EnvFilter; label: string }> = [
   { value: 'ALL', label: 'All' },
-  { value: 'PRODUCTION', label: 'Production' },
-  { value: 'STAGING', label: 'Staging' },
-  { value: 'DEVELOPMENT', label: 'Development' },
   { value: 'SHARED', label: 'Shared' },
+  { value: 'POD', label: 'Pod' },
+  { value: 'PHARMACY', label: 'Pharmacy' },
+  { value: 'WIKI', label: 'Wiki' },
 ];
 
 const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [

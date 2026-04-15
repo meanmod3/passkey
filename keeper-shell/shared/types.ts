@@ -3,7 +3,7 @@
 
 export type Role = 'REQUESTER' | 'APPROVER' | 'ADMIN';
 
-export type Environment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT' | 'SHARED';
+export type Environment = 'SHARED' | 'POD' | 'PHARMACY' | 'WIKI';
 
 export type RecordStatus =
   | 'AVAILABLE'

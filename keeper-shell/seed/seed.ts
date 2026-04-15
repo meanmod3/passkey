@@ -84,10 +84,10 @@ async function main(): Promise<void> {
   ];
 
   const ENV_ROTATION: Environment[] = [
-    Environment.PRODUCTION,
-    Environment.STAGING,
-    Environment.DEVELOPMENT,
     Environment.SHARED,
+    Environment.POD,
+    Environment.PHARMACY,
+    Environment.WIKI,
   ];
   const OWNER_ROTATION: string[] = [carol.id, dave.id];
 
