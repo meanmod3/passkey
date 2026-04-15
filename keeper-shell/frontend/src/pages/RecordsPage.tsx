@@ -93,14 +93,28 @@ export function RecordsPage(): JSX.Element {
       list.push(r);
       map.set(r.environment, list);
     }
+    // Records inside each folder stay alphabetical regardless of sort direction —
+    // the Sort by Name control targets FOLDER order, not record order.
     for (const [env, list] of map) {
-      list.sort((a, b) =>
-        sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name),
-      );
+      list.sort((a, b) => a.name.localeCompare(b.name));
       map.set(env, list);
     }
     return map;
-  }, [records, sortDir]);
+  }, [records]);
+
+  /**
+   * Folder (environment) render order driven by the Sort by Name toggle.
+   * Asc = A→Z by ENV_LABEL ("Development", "Production", "Shared", "Staging")
+   * Desc = Z→A. Replaces the previous hardcoded ENV_ORDER render.
+   */
+  const envOrder = useMemo<Environment[]>(() => {
+    const present = ENV_ORDER.filter((env) => grouped.has(env));
+    return present.slice().sort((a, b) =>
+      sortDir === 'asc'
+        ? ENV_LABEL[a].localeCompare(ENV_LABEL[b])
+        : ENV_LABEL[b].localeCompare(ENV_LABEL[a]),
+    );
+  }, [grouped, sortDir]);
 
   const selected = useMemo(
     () => records.find((r) => r.id === selectedId) ?? null,
@@ -135,8 +149,8 @@ export function RecordsPage(): JSX.Element {
           </div>
           <button
             type="button"
-            aria-label={`Sort by name, ${sortDir === 'asc' ? 'A to Z' : 'Z to A'}`}
-            title={`Sort by name — click to toggle (currently ${sortDir === 'asc' ? 'A → Z' : 'Z → A'})`}
+            aria-label={`Sort folders by name, ${sortDir === 'asc' ? 'A to Z' : 'Z to A'}`}
+            title={`Sort folders by name — click to toggle (currently ${sortDir === 'asc' ? 'A → Z' : 'Z → A'})`}
             onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
             className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
           >
@@ -156,7 +170,7 @@ export function RecordsPage(): JSX.Element {
             <div className="py-16 text-center text-[var(--text-muted)] text-sm">No records match your search.</div>
           ) : (
             <ul className="pb-10 list-none m-0 p-0 px-3">
-              {ENV_ORDER.filter((env) => grouped.has(env)).map((env) => {
+              {envOrder.map((env) => {
                 const list = grouped.get(env) ?? [];
                 const isOpen = expanded.has(env);
                 return (
@@ -238,19 +252,17 @@ export function RecordsPage(): JSX.Element {
  * the full key via Fluent Tooltip.
  */
 function StatusKey(): JSX.Element {
-  const keyBody = (
-    <ul className="list-none m-0 p-0 space-y-1 min-w-[10rem]">
-      {STATUS_KEY_ORDER.map((s) => (
-        <li key={s} className="flex items-center gap-2 text-xs">
-          <StatusDot status={s} size={10} />
-          <span className="font-mono text-[11px] text-[var(--text-muted)]">{s}</span>
-          <span className="ml-auto text-[11px]">{statusLabel(s)}</span>
-        </li>
-      ))}
-    </ul>
-  );
+  // Dedupe user-facing labels so the key doesn't repeat "On Hold" / "Closed"
+  // (which map from multiple backend statuses). Keeps the tooltip copy clean
+  // while still covering all six statuses semantically.
+  const uniqueLabels: string[] = [];
+  for (const s of STATUS_KEY_ORDER) {
+    const label = statusLabel(s);
+    if (!uniqueLabels.includes(label)) uniqueLabels.push(label);
+  }
+  const keyContent = uniqueLabels.join(' · ');
   return (
-    <Tooltip content={keyBody} relationship="description" positioning="above-end" withArrow>
+    <Tooltip content={keyContent} relationship="label" positioning="above-end">
       <button
         type="button"
         aria-label="Show status key"

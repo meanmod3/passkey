@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Body1,
   Button,
+  Dropdown,
   Input,
+  Option,
+  Radio,
+  RadioGroup,
   Title2,
 } from '@fluentui/react-components';
 import {
@@ -62,9 +66,9 @@ export function SettingsPage(): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface)] text-[var(--text)] flex flex-col">
       <div className="flex-1 px-8 py-6 max-w-4xl pb-24">
         <header className="flex items-end justify-between mb-6">
-          <div>
-            <Title2 as="h1" className="block">Settings</Title2>
-            <Body1 className="block text-[var(--text-muted)] mt-1">
+          <div className="flex flex-col gap-1.5">
+            <Title2 as="h1">Settings</Title2>
+            <Body1 className="text-[var(--text-muted)]">
               Admin · global workspace settings
             </Body1>
           </div>
@@ -81,13 +85,16 @@ export function SettingsPage(): JSX.Element {
             />
           </Section>
 
-          <Section title="Reason categories" subtitle="Drag rows to reorder — the order is reflected in the request form dropdown.">
-            <ReorderableList
-              items={draft.reasonCategories}
-              onChange={(next) => setDraft({ ...draft, reasonCategories: next })}
-              placeholder="Add a new reason..."
-              emptyMessage="No reason categories. Add at least one."
-            />
+          <Section title="Reason (dropdown) Settings" subtitle="Drag rows to reorder — the order is reflected in the request form dropdown. The preview on the right shows exactly what requesters see.">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_minmax(260px,320px)] gap-4 items-start">
+              <ReorderableList
+                items={draft.reasonCategories}
+                onChange={(next) => setDraft({ ...draft, reasonCategories: next })}
+                placeholder="Add a new reason..."
+                emptyMessage="No reason categories. Add at least one."
+              />
+              <ReasonDropdownPreview items={draft.reasonCategories} />
+            </div>
           </Section>
 
           <Section title="Lease duration presets" subtitle="Drag to reorder. The 8-hour policy cap still applies.">
@@ -97,15 +104,8 @@ export function SettingsPage(): JSX.Element {
             />
           </Section>
 
-          <Section title="Theme" subtitle="In production the theme follows Teams. Override here for testing.">
-            <div className="rounded-md p-4 bg-[var(--surface-elevated)] flex items-center gap-3">
-              <span className="text-sm text-[var(--text-muted)]">Current theme:</span>
-              <span className="text-sm font-semibold">{theme}</span>
-              <div className="flex-1" />
-              <a className="text-sm text-[var(--accent)] hover:underline" href="?theme=light">Force light</a>
-              <a className="text-sm text-[var(--accent)] hover:underline" href="?theme=dark">Force dark</a>
-              <a className="text-sm text-[var(--accent)] hover:underline" href="?theme=highContrast">Force HC</a>
-            </div>
+          <Section title="Theme" subtitle="In production the theme follows Teams. Pick an override here for testing — 'Default' returns to the Teams-provided theme.">
+            <ThemePanel currentTheme={theme} />
           </Section>
         </div>
       </div>
@@ -452,6 +452,90 @@ function DurationsPanel({
         </Button>
       </div>
     </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────  Theme override (radio) */
+
+/**
+ * Three-way theme override: Default (no override — follow Teams / system),
+ * Light, Dark. Backed by the `?theme=` URL param that `useTeamsTheme` reads.
+ * Clicking a radio navigates to the same URL with the appropriate param;
+ * `useTeamsTheme` re-reads the query string on the resulting load.
+ */
+function ThemePanel({ currentTheme }: { currentTheme: string }): JSX.Element {
+  const override = (typeof window !== 'undefined'
+    ? new URLSearchParams(window.location.search).get('theme')
+    : null) as 'light' | 'dark' | null;
+  const selected: 'default' | 'light' | 'dark' = override === 'light' || override === 'dark' ? override : 'default';
+
+  function apply(next: 'default' | 'light' | 'dark'): void {
+    const url = new URL(window.location.href);
+    if (next === 'default') url.searchParams.delete('theme');
+    else url.searchParams.set('theme', next);
+    window.location.href = url.toString();
+  }
+
+  return (
+    <div className="rounded-md p-4 bg-[var(--surface-elevated)]">
+      <RadioGroup
+        value={selected}
+        onChange={(_e, d) => apply(d.value as 'default' | 'light' | 'dark')}
+        layout="horizontal"
+      >
+        <Radio value="default" label="Default (follow Teams)" />
+        <Radio value="light" label="Light" />
+        <Radio value="dark" label="Dark" />
+      </RadioGroup>
+      <div className="mt-3 text-[12px] text-[var(--text-muted)]">
+        Active: <span className="font-semibold text-[var(--text)]">{currentTheme}</span>
+        {selected === 'default' && <span> · no override</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────  Reason dropdown preview */
+
+/**
+ * Renders the Reason-category list exactly as requesters see it on the
+ * request form — a disabled Fluent `Dropdown` bound to the first option
+ * so admins can verify ordering + copy before saving.
+ */
+function ReasonDropdownPreview({ items }: { items: string[] }): JSX.Element {
+  const firstValue = items[0] ?? '';
+  return (
+    <aside
+      className="rounded-md bg-[var(--surface-elevated)] p-4 border border-[var(--border)]"
+      aria-label="Requester-facing dropdown preview"
+    >
+      <div className="text-[11px] uppercase tracking-wider text-[var(--text-subtle)] mb-2">
+        Requester preview
+      </div>
+      <label className="text-[13px] font-semibold block mb-1" htmlFor="reason-dropdown-preview">
+        Reason for access
+      </label>
+      {items.length === 0 ? (
+        <div className="text-[12px] text-[var(--text-muted)] py-2">
+          Add at least one reason to see the dropdown.
+        </div>
+      ) : (
+        <Dropdown
+          id="reason-dropdown-preview"
+          value={firstValue}
+          selectedOptions={firstValue ? [firstValue] : []}
+          className="!w-full"
+          aria-label="Reason for access (preview)"
+        >
+          {items.map((r) => (
+            <Option key={r} value={r} text={r}>{r}</Option>
+          ))}
+        </Dropdown>
+      )}
+      <div className="mt-3 text-[11px] text-[var(--text-muted)]">
+        Live preview · updates as you reorder
+      </div>
+    </aside>
   );
 }
 

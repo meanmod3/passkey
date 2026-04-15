@@ -47,9 +47,9 @@ export function NotificationsPage(): JSX.Element {
   return (
     <div className="p-6 max-w-3xl mx-auto h-full overflow-auto">
       <header className="flex items-end justify-between mb-4">
-        <div>
-          <Title2 as="h1" className="block">Notifications</Title2>
-          <Body1 className="block text-[var(--text-muted)] mt-1">
+        <div className="flex flex-col gap-1.5">
+          <Title2 as="h1">Notifications</Title2>
+          <Body1 className="text-[var(--text-muted)]">
             {items.length} total · {items.filter((i) => !i.read).length} unread
           </Body1>
         </div>

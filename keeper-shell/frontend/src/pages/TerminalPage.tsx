@@ -59,9 +59,9 @@ export function TerminalPage(): JSX.Element {
     <div className="h-full overflow-auto">
       <div className="px-6 py-6 max-w-6xl">
         <header className="flex items-end justify-between mb-5">
-          <div>
-            <Title2 as="h1" className="block">Terminal</Title2>
-            <Body1 className="block text-[var(--text-muted)] mt-1">
+          <div className="flex flex-col gap-1.5">
+            <Title2 as="h1">Terminal</Title2>
+            <Body1 className="text-[var(--text-muted)]">
               {active.length} active passkey{active.length === 1 ? '' : 's'} in flight
             </Body1>
           </div>

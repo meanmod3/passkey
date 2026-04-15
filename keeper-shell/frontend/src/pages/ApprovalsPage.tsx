@@ -48,9 +48,9 @@ export function ApprovalsPage(): JSX.Element {
   return (
     <div className="p-6 max-w-4xl">
       <header className="flex items-end justify-between mb-4">
-        <div>
-          <Title2 as="h1" className="block">Approvals queue</Title2>
-          <Body1 className="block text-neutral-600 mt-1">
+        <div className="flex flex-col gap-1.5">
+          <Title2 as="h1">Approvals queue</Title2>
+          <Body1 className="text-[var(--text-muted)]">
             {requests.length} pending {requests.length === 1 ? 'request' : 'requests'}
           </Body1>
         </div>

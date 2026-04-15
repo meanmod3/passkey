@@ -52,9 +52,9 @@ export function AuditPage(): JSX.Element {
     <div className="h-full overflow-auto bg-[var(--surface)] text-[var(--text)]">
       <div className="p-6 max-w-6xl">
         <header className="flex items-end justify-between mb-4">
-          <div>
-            <Title2 as="h1" className="block">Audit log</Title2>
-            <Body1 className="block text-[var(--text-muted)] mt-1">
+          <div className="flex flex-col gap-1.5">
+            <Title2 as="h1">Audit log</Title2>
+            <Body1 className="text-[var(--text-muted)]">
               {events.length} {events.length === 1 ? 'event' : 'events'}
             </Body1>
           </div>

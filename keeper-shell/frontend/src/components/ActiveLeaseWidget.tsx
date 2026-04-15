@@ -72,7 +72,9 @@ export function ActiveLeaseWidget({
         className="
           mt-3 w-full text-[12px] font-bold uppercase tracking-wider
           rounded-md py-2
-          bg-[var(--accent)] text-white hover:bg-[var(--accent-dark)]
+          bg-[var(--accent-soft)] text-[var(--accent-dark)]
+          border border-[var(--accent-soft)]
+          hover:bg-[var(--accent)] hover:text-white hover:border-[var(--accent)]
           disabled:opacity-60 disabled:cursor-not-allowed
           transition-colors flex items-center justify-center gap-2
         "
