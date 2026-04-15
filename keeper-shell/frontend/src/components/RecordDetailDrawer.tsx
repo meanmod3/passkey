@@ -10,8 +10,6 @@ import {
 import {
   Dismiss24Regular,
   Info20Regular,
-  Copy20Regular,
-  Checkmark20Regular,
   History20Regular,
   Document20Regular,
   ChevronDown20Regular,
@@ -185,8 +183,6 @@ export function RecordDetailDrawer({
           </div>
         </Field>
 
-        {isAdmin && <CopyField label="System name" value={record.systemName} mono />}
-
         <Field label="Owner">
           <div className="flex items-center justify-between gap-2">
             <TeamsUserPill user={record.owner} size={24} />
@@ -347,34 +343,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function CopyField({ label, value, mono }: { label: string; value: string; mono?: boolean }): JSX.Element {
-  const [copied, setCopied] = useState(false);
-  async function copy(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch { /* ignore */ }
-  }
-  return (
-    <div>
-      <div className="text-[12px] text-[var(--text-muted)] mb-1">{label}</div>
-      <div className="flex items-center gap-2 group">
-        <div className={`flex-1 min-w-0 text-sm ${mono ? 'ks-mono' : ''} truncate`}>
-          {value}
-        </div>
-        <button
-          type="button"
-          onClick={copy}
-          className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--text-muted)] hover:text-[var(--text)]"
-          title={copied ? 'Copied' : 'Copy'}
-        >
-          {copied ? <Checkmark20Regular /> : <Copy20Regular />}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function AdminHistorySection({ recordId }: { recordId: string }): JSX.Element {
   const [expanded, setExpanded] = useState(false);

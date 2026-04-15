@@ -5,6 +5,15 @@ import { PrismaClient, Role, Environment, RecordStatus, RequestStatus, RequestTy
 
 const prisma = new PrismaClient();
 
+/**
+ * Seed reasons. MUST match the frontend's DEFAULT_REASON_CATEGORIES in
+ * frontend/src/stores/settings.store.ts so the Terminal tiles / My Requests
+ * panel / Approvals show reasons that are actually present in the user-facing
+ * dropdown. If you change the frontend list, mirror it here.
+ */
+const SEED_REASONS = ['Email', 'Imaging', 'Statements', 'ERP'] as const;
+const pickReason = (i: number): string => SEED_REASONS[i % SEED_REASONS.length];
+
 async function main(): Promise<void> {
   console.log('[seed] truncating existing data...');
   await prisma.notification.deleteMany();
@@ -85,7 +94,7 @@ async function main(): Promise<void> {
         recordId: records[h.recordIdx].id,
         requesterId: h.requesterId,
         approverId: h.approverId,
-        reason: 'Historical seeded request',
+        reason: pickReason(h.recordIdx),
         requestedDurationMin: h.durationMin,
         approvedDurationMin: h.durationMin,
         status: h.endsAs,
@@ -118,7 +127,7 @@ async function main(): Promise<void> {
       recordId: records[3].id, // Analytics Warehouse
       requesterId: alice.id,
       approverId: dave.id,
-      reason: 'Debugging data pipeline latency',
+      reason: pickReason(3),
       notes: 'On-call rotation',
       requestedDurationMin: 30,
       approvedDurationMin: 30,
@@ -149,7 +158,7 @@ async function main(): Promise<void> {
     data: {
       recordId: records[5].id, // Search Cluster staging
       requesterId: bob.id,
-      reason: 'Reindex investigation',
+      reason: pickReason(5),
       requestedDurationMin: 60,
       status: RequestStatus.PENDING,
       type: RequestType.INITIAL,
@@ -164,7 +173,7 @@ async function main(): Promise<void> {
       recipientId: carol.id,
       kind: 'APPROVAL_REQUEST',
       title: `Approval needed: ${records[5].name}`,
-      body: `${bob.displayName} requested 60 min — "Reindex investigation"`,
+      body: `${bob.displayName} requested 60 min — "${pickReason(5)}"`,
       requestId: pending.id,
     },
   });
@@ -173,7 +182,7 @@ async function main(): Promise<void> {
       recipientId: dave.id,
       kind: 'APPROVAL_REQUEST',
       title: `Approval needed: ${records[5].name}`,
-      body: `${bob.displayName} requested 60 min — "Reindex investigation"`,
+      body: `${bob.displayName} requested 60 min — "${pickReason(5)}"`,
       requestId: pending.id,
     },
   });

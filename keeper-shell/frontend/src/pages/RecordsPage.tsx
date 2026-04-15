@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
+  Dropdown,
   Input,
+  Option,
+  Radio,
+  RadioGroup,
   Spinner,
   Tooltip,
 } from '@fluentui/react-components';
@@ -13,7 +17,6 @@ import {
   Database20Regular,
   ArrowSortDown20Regular,
   ArrowSortUp20Regular,
-  Info16Regular,
 } from '@fluentui/react-icons';
 import { TeamsUserPill } from '../components/TeamsUserPill';
 import type { Environment, RecordDTO } from '@keeper-shell/shared';
@@ -46,15 +49,16 @@ const ENV_LABEL: Record<Environment, string> = {
   SHARED: 'Shared',
 };
 
-/** All six record statuses, ordered for the Status Key legend. */
-const STATUS_KEY_ORDER = [
-  'AVAILABLE',
-  'PENDING_APPROVAL',
-  'LEASED',
-  'RENEWAL_PENDING',
-  'EXPIRED',
-  'LOCKED',
-] as const;
+/**
+ * Status filter options shown in the footer Dropdown. Values map to the
+ * user-facing label (not the backend RecordStatus) — when the user picks
+ * "On Hold" we include both PENDING_APPROVAL and RENEWAL_PENDING records,
+ * and similarly for "Closed" = LOCKED ∪ EXPIRED. 'all' is the default.
+ */
+const STATUS_FILTER_LABELS = ['All', 'Available', 'On Hold', 'Not Available', 'Closed'] as const;
+type StatusFilterValue = (typeof STATUS_FILTER_LABELS)[number];
+
+type OwnershipFilter = 'all' | 'mine';
 
 export function RecordsPage(): JSX.Element {
   const [records, setRecords] = useState<RecordDTO[]>([]);
@@ -62,6 +66,8 @@ export function RecordsPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('All');
+  const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
   const [expanded, setExpanded] = useState<Set<Environment>>(() => new Set<Environment>());
   const [refreshKey, setRefreshKey] = useState(0);
   const currentUser = useAuthStore((s) => s.user);
@@ -103,9 +109,25 @@ export function RecordsPage(): JSX.Element {
     return () => { cancelled = true; clearTimeout(t); };
   }, [search, refreshKey]);
 
+  /**
+   * Records after the two client-side filters are applied:
+   *   - status filter (All | Available | On Hold | Not Available | Closed)
+   *   - ownership filter (all | mine — records owned by the current user)
+   *
+   * Search goes server-side via listRecords({ q }); these two stay client-side
+   * so the counts / ordering update instantly without refetching.
+   */
+  const visibleRecords = useMemo(() => {
+    return records.filter((r) => {
+      if (statusFilter !== 'All' && statusLabel(r.status) !== statusFilter) return false;
+      if (ownershipFilter === 'mine' && r.ownerId !== currentUser?.id) return false;
+      return true;
+    });
+  }, [records, statusFilter, ownershipFilter, currentUser?.id]);
+
   const grouped = useMemo(() => {
     const map = new Map<Environment, RecordDTO[]>();
-    for (const r of records) {
+    for (const r of visibleRecords) {
       const list = map.get(r.environment) ?? [];
       list.push(r);
       map.set(r.environment, list);
@@ -117,7 +139,7 @@ export function RecordsPage(): JSX.Element {
       map.set(env, list);
     }
     return map;
-  }, [records]);
+  }, [visibleRecords]);
 
   /**
    * Folder (environment) render order driven by the Sort by Name toggle.
@@ -166,12 +188,13 @@ export function RecordsPage(): JSX.Element {
           </div>
           <button
             type="button"
-            aria-label={`Sort folders by name, ${sortDir === 'asc' ? 'A to Z' : 'Z to A'}`}
-            title={`Sort folders by name — click to toggle (currently ${sortDir === 'asc' ? 'A → Z' : 'Z → A'})`}
+            aria-label={`Sort folders ${sortDir === 'asc' ? 'A to Z' : 'Z to A'} — click to toggle`}
+            title={`Folder order — click to toggle (currently ${sortDir === 'asc' ? 'A → Z' : 'Z → A'})`}
             onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
-            className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text)] shrink-0"
           >
-            Sort by Name {sortDir === 'asc' ? <ArrowSortDown20Regular /> : <ArrowSortUp20Regular />}
+            {sortDir === 'asc' ? 'A-Z' : 'Z-A'}
+            {sortDir === 'asc' ? <ArrowSortDown20Regular /> : <ArrowSortUp20Regular />}
           </button>
         </div>
 
@@ -183,8 +206,10 @@ export function RecordsPage(): JSX.Element {
             <div className="flex items-center gap-3 py-12 justify-center text-[var(--text-muted)]">
               <Spinner size="small" /> Loading vault...
             </div>
-          ) : records.length === 0 ? (
-            <div className="py-16 text-center text-[var(--text-muted)] text-sm">No records match your search.</div>
+          ) : visibleRecords.length === 0 ? (
+            <div className="py-16 text-center text-[var(--text-muted)] text-sm">
+              {records.length === 0 ? 'No records match your search.' : 'No records match the current filters.'}
+            </div>
           ) : (
             <ul className="pb-10 list-none m-0 p-0 px-3">
               {envOrder.map((env) => {
@@ -229,13 +254,42 @@ export function RecordsPage(): JSX.Element {
           )}
         </div>
 
-        {/* Vault footer — total record count (bottom-left) + Status Key (bottom-right) */}
-        <div className="shrink-0 border-t border-[var(--border)] px-6 py-2 flex items-center justify-between text-xs text-[var(--text-muted)]">
+        {/* Vault footer — count (bottom-left), my-accesses radio (center),
+            status filter dropdown (bottom-right). */}
+        <div className="shrink-0 border-t border-[var(--border)] px-6 py-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[var(--text-muted)]">
           <span aria-live="polite">
-            {records.length} {records.length === 1 ? 'record' : 'records'}
-            {search.trim() ? ' matching search' : ''}
+            {visibleRecords.length} {visibleRecords.length === 1 ? 'record' : 'records'}
+            {(search.trim() || statusFilter !== 'All' || ownershipFilter !== 'all') ? ' (filtered)' : ''}
           </span>
-          <StatusKey />
+          <span className="flex-1" />
+          {currentUser && (
+            <RadioGroup
+              value={ownershipFilter}
+              onChange={(_e, d) => setOwnershipFilter(d.value as OwnershipFilter)}
+              layout="horizontal"
+              aria-label="Filter by ownership"
+            >
+              <Radio value="all" label="All" />
+              <Radio value="mine" label="My accesses" />
+            </RadioGroup>
+          )}
+          <div className="flex items-center gap-2">
+            <label htmlFor="status-filter" className="shrink-0">Status</label>
+            <Dropdown
+              id="status-filter"
+              size="small"
+              value={statusFilter}
+              selectedOptions={[statusFilter]}
+              onOptionSelect={(_e, d) => setStatusFilter((d.optionValue as StatusFilterValue) ?? 'All')}
+              aria-label="Filter records by status"
+            >
+              {STATUS_FILTER_LABELS.map((label) => (
+                <Option key={label} value={label} text={label}>
+                  {label}
+                </Option>
+              ))}
+            </Dropdown>
+          </div>
         </div>
       </div>
 
@@ -277,48 +331,6 @@ export function RecordsPage(): JSX.Element {
         )}
       </aside>
     </div>
-  );
-}
-
-/**
- * Legend of all six Record.status values + their StatusDot colors.
- * Bottom-right of the Records center body. Hover (or keyboard focus) reveals
- * the full key via Fluent Tooltip.
- */
-function StatusKey(): JSX.Element {
-  // Column of statuses — each row is a color dot + its label. Styled as plain
-  // tooltip content (same typography as every other Fluent tooltip in the app,
-  // no font-mono or special colored text), just the dot giving the color cue.
-  // Dedupe user-facing labels so "On Hold" / "Closed" don't appear twice.
-  const uniqueRows: { status: (typeof STATUS_KEY_ORDER)[number]; label: string }[] = [];
-  const seen = new Set<string>();
-  for (const s of STATUS_KEY_ORDER) {
-    const label = statusLabel(s);
-    if (seen.has(label)) continue;
-    seen.add(label);
-    uniqueRows.push({ status: s, label });
-  }
-  const keyContent = (
-    <ul className="list-none m-0 p-0 flex flex-col gap-1.5">
-      {uniqueRows.map(({ status, label }) => (
-        <li key={status} className="flex items-center gap-2">
-          <StatusDot status={status} size={10} />
-          <span>{label}</span>
-        </li>
-      ))}
-    </ul>
-  );
-  return (
-    <Tooltip content={keyContent} relationship="label" positioning="above-end">
-      <button
-        type="button"
-        aria-label="Show status key"
-        className="inline-flex items-center gap-1 text-[var(--text-muted)] hover:text-[var(--text)]"
-      >
-        <Info16Regular />
-        <span>Status key</span>
-      </button>
-    </Tooltip>
   );
 }
 

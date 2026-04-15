@@ -109,7 +109,6 @@ function TerminalRow({ request }: { request: RequestDTO }): JSX.Element {
       <div className="min-w-0 flex-1">
         <div className="text-[11px] uppercase tracking-wider text-[var(--text-subtle)]">Record</div>
         <div className="text-sm font-medium truncate">{request.record?.name ?? '—'}</div>
-        <div className="text-[11px] ks-mono text-[var(--text-muted)] truncate">{request.record?.systemName}</div>
       </div>
 
       {/* Duration */}
