@@ -2,7 +2,7 @@ import { prisma } from '../db.js';
 import { HttpError } from '../middleware/error.middleware.js';
 import { LeasePolicy } from '../policy/lease-policy.js';
 import { writeAuditEvent } from './audit.service.js';
-import { keeperService } from './keeper.service.js';
+import { keeperService, formatKeeperExpire } from './keeper.service.js';
 import { notificationService } from './notification.service.js';
 
 /**
@@ -54,6 +54,7 @@ export async function startLease(params: {
     return r;
   });
 
+  const commanderExpire = formatKeeperExpire(params.durationMinutes);
   await writeAuditEvent({
     action: 'LEASE_STARTED',
     actorId: params.approverId,
@@ -64,7 +65,7 @@ export async function startLease(params: {
     action: 'SHARE_ISSUED',
     actorId: params.approverId,
     requestId: updated.id,
-    detail: `ttlMin=${params.durationMinutes} shareLink=${share.shareLink}`,
+    detail: `ttl=${commanderExpire} shareLink=${share.shareLink}`,
   });
 
   await notificationService.sendShareLink({

@@ -1,11 +1,11 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ClipboardTaskListLtr24Regular,
-  CheckmarkCircle24Regular,
-  History24Regular,
-  Alert24Regular,
-  Settings24Regular,
+  ClipboardTaskListLtr20Regular,
+  CheckmarkCircle20Regular,
+  History20Regular,
+  Alert20Regular,
+  Settings20Regular,
 } from '@fluentui/react-icons';
 import { useAuthStore } from '../stores/auth.store';
 import { useRightPanel } from '../stores/rightPanel.store';
@@ -38,36 +38,36 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   const nav: NavItem[] = [
     {
       label: 'My Requests',
-      icon: <ClipboardTaskListLtr24Regular />,
+      icon: <ClipboardTaskListLtr20Regular />,
       onClick: () => { navigate('/'); showMyRequests(); },
     },
     {
       label: 'Notifications',
-      icon: <Alert24Regular />,
+      icon: <Alert20Regular />,
       onClick: () => { navigate('/'); showNotifications(); },
       badge: unread,
     },
     {
       label: 'Approvals',
-      icon: <CheckmarkCircle24Regular />,
+      icon: <CheckmarkCircle20Regular />,
       onClick: () => { navigate('/'); showApprovals(); },
       requiresRole: ['APPROVER', 'ADMIN'],
     },
     {
       label: 'Audit Log',
-      icon: <History24Regular />,
+      icon: <History20Regular />,
       onClick: () => navigate('/audit'),
       requiresRole: ['ADMIN'],
     },
     {
       label: 'Terminal',
-      icon: <PasskeyBrandIcon className="w-6 h-6" iconSize={18} />,
+      icon: <PasskeyBrandIcon className="w-5 h-5" iconSize={16} />,
       onClick: () => navigate('/terminal'),
       requiresRole: ['ADMIN'],
     },
     {
       label: 'Settings',
-      icon: <Settings24Regular />,
+      icon: <Settings20Regular />,
       onClick: () => navigate('/settings'),
       requiresRole: ['ADMIN'],
     },
@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
               key={n.label}
               type="button"
               onClick={n.onClick}
-              className="w-full flex items-center gap-3 px-5 py-3 text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] transition-colors no-underline"
+              className="w-full flex items-center gap-2.5 px-5 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-hover)] transition-colors no-underline"
             >
               {n.icon}
               <span>{n.label}</span>
