@@ -61,7 +61,7 @@ export function IdentityPicker(): JSX.Element {
   ];
 
   return (
-    <div className="flex h-full items-center justify-center bg-neutral-50">
+    <div className="flex h-full items-center justify-center bg-[var(--surface)] text-[var(--text)]">
       <Card className="w-[440px] p-6">
         <CardHeader
           header={<Title3>Select a mock identity</Title3>}
@@ -99,7 +99,7 @@ export function IdentityPicker(): JSX.Element {
                   <Avatar name={'displayName' in u ? u.displayName : u.email} color="colorful" />
                   <div className="flex flex-col items-start flex-1">
                     <span className="text-sm font-semibold">{'displayName' in u ? u.displayName : u.email}</span>
-                    <span className="text-xs text-neutral-600">{u.email} · {u.role}</span>
+                    <span className="text-xs text-[var(--text-muted)]">{u.email} · {u.role}</span>
                   </div>
                   {loading === ('id' in u ? u.id : u.email) && <Spinner size="tiny" />}
                 </div>
@@ -107,7 +107,7 @@ export function IdentityPicker(): JSX.Element {
             );
           })}
         </div>
-        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
       </Card>
     </div>
   );

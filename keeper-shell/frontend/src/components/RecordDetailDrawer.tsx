@@ -27,6 +27,7 @@ import { useCountdown, formatCountdown, formatTimeRemainingShort } from '../hook
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useSettings } from '../stores/settings.store';
+import { ShareLinkBlock } from './ShareLinkBlock';
 
 function formatDuration(mins: number): string {
   if (mins >= 60 && mins % 60 === 0) {
@@ -238,7 +239,7 @@ export function RecordDetailDrawer({
               </Field>
             </div>
             {lease.shareLink && isHolder && (
-              <CopyField label="One-time share link" value={lease.shareLink} mono />
+              <ShareLinkBlock value={lease.shareLink} />
             )}
             {lease.reason && (
               <Field label="Reason">

@@ -286,15 +286,28 @@ export function RecordsPage(): JSX.Element {
  * the full key via Fluent Tooltip.
  */
 function StatusKey(): JSX.Element {
-  // Dedupe user-facing labels so the key doesn't repeat "On Hold" / "Closed"
-  // (which map from multiple backend statuses). Keeps the tooltip copy clean
-  // while still covering all six statuses semantically.
-  const uniqueLabels: string[] = [];
+  // Column of statuses — each row is a color dot + its label. Styled as plain
+  // tooltip content (same typography as every other Fluent tooltip in the app,
+  // no font-mono or special colored text), just the dot giving the color cue.
+  // Dedupe user-facing labels so "On Hold" / "Closed" don't appear twice.
+  const uniqueRows: { status: (typeof STATUS_KEY_ORDER)[number]; label: string }[] = [];
+  const seen = new Set<string>();
   for (const s of STATUS_KEY_ORDER) {
     const label = statusLabel(s);
-    if (!uniqueLabels.includes(label)) uniqueLabels.push(label);
+    if (seen.has(label)) continue;
+    seen.add(label);
+    uniqueRows.push({ status: s, label });
   }
-  const keyContent = uniqueLabels.join(' · ');
+  const keyContent = (
+    <ul className="list-none m-0 p-0 flex flex-col gap-1.5">
+      {uniqueRows.map(({ status, label }) => (
+        <li key={status} className="flex items-center gap-2">
+          <StatusDot status={status} size={10} />
+          <span>{label}</span>
+        </li>
+      ))}
+    </ul>
+  );
   return (
     <Tooltip content={keyContent} relationship="label" positioning="above-end">
       <button

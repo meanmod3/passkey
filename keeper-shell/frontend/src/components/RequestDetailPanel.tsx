@@ -9,6 +9,7 @@ import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useRightPanel } from '../stores/rightPanel.store';
 import { PanelHeader } from './MyRequestsPanel';
+import { ShareLinkBlock } from './ShareLinkBlock';
 
 export function RequestDetailPanel({ requestId }: { requestId: string }): JSX.Element {
   const close = useRightPanel((s) => s.close);
@@ -127,10 +128,7 @@ export function RequestDetailPanel({ requestId }: { requestId: string }): JSX.El
         </div>
 
         {request.shareLink && isMine && (
-          <div>
-            <div className="text-[12px] text-[var(--text-muted)] mb-1">One-time share link</div>
-            <div className="text-[12px] ks-mono text-[var(--text)] truncate">{request.shareLink}</div>
-          </div>
+          <ShareLinkBlock value={request.shareLink} />
         )}
 
         {request.notes && (

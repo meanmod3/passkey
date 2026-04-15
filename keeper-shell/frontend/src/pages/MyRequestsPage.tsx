@@ -4,6 +4,7 @@ import { ArrowClockwise24Regular } from '@fluentui/react-icons';
 import type { RequestDTO } from '@keeper-shell/shared';
 import { StatusBadge } from '../components/StatusBadge';
 import { RenewalPromptDialog } from '../components/RenewalPromptDialog';
+import { ShareLinkBlock } from '../components/ShareLinkBlock';
 import { formatCountdown, useCountdown } from '../hooks/useCountdown';
 import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
@@ -195,8 +196,8 @@ function ActiveLeaseRow({
         </div>
       </div>
       {request.shareLink && (
-        <div className="mt-2 text-xs font-mono text-neutral-600 truncate">
-          Share link: {request.shareLink}
+        <div className="mt-3">
+          <ShareLinkBlock value={request.shareLink} showLabel={false} aria-label="Share link" />
         </div>
       )}
       {error && <div className="mt-2 text-xs text-red-700">{error}</div>}
