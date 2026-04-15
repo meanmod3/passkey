@@ -46,7 +46,7 @@ export function MyRequestsPanel(): JSX.Element {
   }, [requests]);
 
   return (
-    <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
+    <aside className="w-full bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
       <PanelHeader title="My Requests" subtitle={`${requests.length} total`} onClose={close}>
         <Button appearance="subtle" size="small" icon={<ArrowClockwise20Regular />} onClick={reload} />
       </PanelHeader>

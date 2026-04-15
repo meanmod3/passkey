@@ -28,6 +28,14 @@ import { api, ApiError } from '../services/api';
 import { useAuthStore } from '../stores/auth.store';
 import { useMyActiveLease } from '../hooks/useMyActiveLease';
 import { useRightPanel } from '../stores/rightPanel.store';
+import { useResizableWidth } from '../hooks/useResizableWidth';
+import { ResizableDivider } from '../components/ResizableDivider';
+
+// Right-panel resize bounds: 320 keeps buttons/copy legible; 720 leaves room
+// for the vault column on a 1280px viewport. Default 420 = legacy w-[420px].
+const RIGHT_PANEL_MIN = 320;
+const RIGHT_PANEL_MAX = 720;
+const RIGHT_PANEL_DEFAULT = 420;
 
 const ENV_ORDER: Environment[] = ['PRODUCTION', 'STAGING', 'DEVELOPMENT', 'SHARED'];
 
@@ -61,6 +69,15 @@ export function RecordsPage(): JSX.Element {
   const blockedByActiveLease = !!myLease && !currentUser?.allowMultipleLeases;
   const panel = useRightPanel();
   const selectedId = panel.mode === 'record' ? panel.recordId ?? null : null;
+
+  // Right-panel resize — width persisted under ks:rightPanelWidth.
+  const rightPanel = useResizableWidth({
+    storageKey: 'ks:rightPanelWidth',
+    defaultWidth: RIGHT_PANEL_DEFAULT,
+    minWidth: RIGHT_PANEL_MIN,
+    maxWidth: RIGHT_PANEL_MAX,
+    edge: 'left',
+  });
 
   const reload = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -222,26 +239,43 @@ export function RecordsPage(): JSX.Element {
         </div>
       </div>
 
-      {/* Right panel — sibling of the vault column, spans the full page height */}
-      {panel.mode === 'my-requests' && <MyRequestsPanel />}
-      {panel.mode === 'notifications' && <NotificationsPanel />}
-      {panel.mode === 'approvals' && <ApprovalsPanel />}
-      {panel.mode === 'request' && panel.requestId && <RequestDetailPanel requestId={panel.requestId} />}
-      {(panel.mode === 'record' || panel.mode === 'empty') && (
-        <RecordDetailDrawer
-          record={selected}
-          isAdmin={currentUser?.role === 'ADMIN'}
-          isOwner={!!selected && !!currentUser && selected.ownerId === currentUser.id}
-          isHolder={!!selected?.currentLease && selected.currentLease.requesterId === currentUser?.id}
-          blockedByActiveLease={blockedByActiveLease}
-          onClose={() => panel.close()}
-          onRequestSubmitted={reload}
-          onRelease={async (requestId) => {
-            await api.releaseRequest(requestId);
-            reload();
-          }}
-        />
-      )}
+      {/* Draggable gutter between the vault column and the right panel. */}
+      <ResizableDivider
+        ariaLabel="Resize right panel"
+        ariaValueNow={rightPanel.width}
+        ariaValueMin={RIGHT_PANEL_MIN}
+        ariaValueMax={RIGHT_PANEL_MAX}
+        isDragging={rightPanel.isDragging}
+        onPointerDown={rightPanel.onPointerDown}
+        onKeyDown={rightPanel.onKeyDown}
+      />
+
+      {/* Right panel — sibling of the vault column, spans the full page height.
+          Width is controlled here; inner panels render `w-full` to fill. */}
+      <aside
+        style={{ width: rightPanel.width }}
+        className="shrink-0 flex min-h-0"
+      >
+        {panel.mode === 'my-requests' && <MyRequestsPanel />}
+        {panel.mode === 'notifications' && <NotificationsPanel />}
+        {panel.mode === 'approvals' && <ApprovalsPanel />}
+        {panel.mode === 'request' && panel.requestId && <RequestDetailPanel requestId={panel.requestId} />}
+        {(panel.mode === 'record' || panel.mode === 'empty') && (
+          <RecordDetailDrawer
+            record={selected}
+            isAdmin={currentUser?.role === 'ADMIN'}
+            isOwner={!!selected && !!currentUser && selected.ownerId === currentUser.id}
+            isHolder={!!selected?.currentLease && selected.currentLease.requesterId === currentUser?.id}
+            blockedByActiveLease={blockedByActiveLease}
+            onClose={() => panel.close()}
+            onRequestSubmitted={reload}
+            onRelease={async (requestId) => {
+              await api.releaseRequest(requestId);
+              reload();
+            }}
+          />
+        )}
+      </aside>
     </div>
   );
 }

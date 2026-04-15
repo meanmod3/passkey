@@ -85,7 +85,7 @@ export function RecordDetailDrawer({
 
   if (!record) {
     return (
-      <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] hidden lg:flex items-center justify-center">
+      <aside className="w-full bg-[var(--surface-elevated)] hidden lg:flex items-center justify-center">
         <div className="text-center text-sm text-[var(--text-muted)] px-8">
           <Document20Regular className="mx-auto mb-2 text-[var(--text-subtle)] scale-[1.8]" />
           <div className="mt-3">Select a record to see its lease status.</div>
@@ -130,7 +130,7 @@ export function RecordDetailDrawer({
   const canRequest = record.status === 'AVAILABLE' && !isOwner;
 
   return (
-    <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
+    <aside className="w-full bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
       {/* Header — read-only projection, no edit/share/more */}
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between mb-3">

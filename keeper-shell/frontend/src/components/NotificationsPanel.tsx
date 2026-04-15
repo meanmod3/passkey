@@ -45,7 +45,7 @@ export function NotificationsPanel(): JSX.Element {
   }
 
   return (
-    <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
+    <aside className="w-full bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
       <PanelHeader
         title="Notifications"
         subtitle={`${items.length} total · ${items.filter((n) => !n.read).length} unread`}

@@ -47,7 +47,7 @@ export function ApprovalsPanel(): JSX.Element {
   }, [reload]);
 
   return (
-    <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
+    <aside className="w-full bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
       <PanelHeader
         title="Approvals queue"
         subtitle={`${requests.length} pending ${requests.length === 1 ? 'request' : 'requests'}`}

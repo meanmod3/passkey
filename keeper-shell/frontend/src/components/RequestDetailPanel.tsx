@@ -54,14 +54,14 @@ export function RequestDetailPanel({ requestId }: { requestId: string }): JSX.El
 
   if (loading) {
     return (
-      <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex items-center justify-center">
+      <aside className="w-full bg-[var(--surface-elevated)] flex items-center justify-center">
         <Spinner size="small" />
       </aside>
     );
   }
   if (!request) {
     return (
-      <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col">
+      <aside className="w-full bg-[var(--surface-elevated)] flex flex-col">
         <PanelHeader title="Request" onClose={close} />
         <div className="flex-1 flex items-center justify-center text-sm text-[var(--text-muted)]">
           {error ?? 'Request not found.'}
@@ -75,7 +75,7 @@ export function RequestDetailPanel({ requestId }: { requestId: string }): JSX.El
   const canRelease = isMine && (request.status === 'APPROVED' || request.status === 'RENEWAL_PENDING');
 
   return (
-    <aside className="w-[420px] shrink-0 bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
+    <aside className="w-full bg-[var(--surface-elevated)] flex flex-col overflow-hidden">
       <PanelHeader
         title={request.record?.name ?? 'Request'}
         subtitle={request.record?.systemName}
