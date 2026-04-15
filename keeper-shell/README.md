@@ -1,336 +1,509 @@
-# Keeper Shell
+# Keeper-Shell: Microsoft Teams Credential Request Broker
 
-A brokered credential request shell over Keeper-backed records. Designed to run as a Microsoft Teams tab SPA — a lease-and-approval surface, not a vault browser.
-
-Status: all 6 build phases complete. Every integration seam has a working mock; real Entra / Keeper Commander / Teams SDK swap in at the file boundaries noted below.
-
-## Contents
-
-1. [Quickstart](#quickstart)
-2. [Architecture](#architecture)
-3. [Data model](#data-model)
-4. [API](#api)
-5. [Lease lifecycle](#lease-lifecycle)
-6. [Policy](#policy)
-7. [Integration seams — how to swap in real services](#integration-seams)
-8. [Development](#development)
-9. [Done criteria — verification evidence](#done-criteria)
+**Status:** Phase 1 Complete | Ready for Phase 2–5  
+**Repository:** `C:\Users\ben12\passkey\keeper-shell\`  
+**Tech Stack:** React 18 + Express + PostgreSQL + Prisma + TypeScript  
+**Timeline:** 4 weeks to production-ready | 2 weeks to functional MVP
 
 ---
 
-## Quickstart
+## What Is Keeper-Shell?
 
-Requires Docker Desktop (Docker Compose v2). Node not required on the host.
+A **Microsoft Teams tab application** that acts as a **credential request broker** over Keeper-backed records. It surfaces a least-privilege access workflow:
 
-```bash
-cd keeper-shell
-cp .env.example .env
-docker compose up --build
-```
+- **Requesters** submit access requests (reason + duration)
+- **Approvers** review and approve/deny with optional duration override
+- **System** manages credential leases, renewals, expiry, and audit trails
+- **Keeper** provides one-time-share credentials for approved leases
+- **Teams** provides conversation context and notifications
 
-On first boot the backend runs `prisma db push` to sync the schema, then seeds 5 users / 10 records / an active lease / a pending approval / five historical requests with full audit trails, then listens on `:4000` and starts the scheduler. The frontend serves on `:5173` via Vite.
-
-- **Frontend:** http://localhost:5173
-- **Backend health:** http://localhost:4000/healthz
-- **Postgres:** `localhost:5432` (user `keeper`, password `keeper`, db `keepershell`)
-
-Open http://localhost:5173, pick a mock identity, and you're in.
-
-## Seeded users
-
-| Email                 | Role      | Use for                              |
-| --------------------- | --------- | ------------------------------------ |
-| alice@example.com     | REQUESTER | Requester side of the flow           |
-| bob@example.com       | REQUESTER | Second requester (pending approval)  |
-| carol@example.com     | APPROVER  | Approve / deny                       |
-| dave@example.com      | APPROVER  | Approve / deny                       |
-| erin@example.com      | ADMIN     | Audit log, manual scheduler triggers |
+It is **not a vault UI**. It is a workflow engine that orchestrates credential delivery through Teams.
 
 ---
 
-## Architecture
+## Phase 1: Scaffold Complete 
+
+### What's Built
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| **Monorepo Structure** | npm workspaces (frontend, backend, shared, seed) |
+| **Database Schema** | Prisma models: User, Record, Request, AuditEvent, Notification |
+| **Backend Framework** | Express + TypeScript + middleware + error handling |
+| **Frontend Framework** | React 18 + Vite + Fluent UI v9 + Tailwind + Zustand + React Router |
+| **Authentication** | Mock JWT issuer; Entra ID integration seam |
+| **Vault Integration** | Keeper Commander integration seam (mock) |
+| **Notifications** | Teams Bot Framework integration seam (mock) |
+| **Policy Engine** | Lease duration caps, approval routing, renewal windows |
+| **Scheduler Jobs** | node-cron for expiry checks + renewal prompts |
+| **Seed Data** | 5 users, 10 records, 5 historical requests, audit trails |
+| **Docker** | Postgres 16 + backend + frontend + compose file |
+| **Documentation** | README (this file) + Architecture spec (Teams composition) |
+
+### Directory Structure
 
 ```
 keeper-shell/
-├── frontend/          # React 18 + Vite + TS + Fluent UI v9 + Tailwind + Zustand
-│   └── src/
-│       ├── components/   # AppShell, IdentityPicker, StatusBadge,
-│       │                 # RequestAccessModal, RenewalPromptDialog, NotificationsBell
-│       ├── pages/        # RecordsPage, MyRequestsPage, ApprovalsPage, AuditPage
-│       ├── hooks/        # useCountdown
-│       ├── services/     # api (typed fetch client)
-│       ├── stores/       # auth.store (Zustand + persist)
-│       └── App.tsx
-├── backend/           # Node 20 + Express + TS + Prisma 5 + Zod + node-cron + JWT
-│   └── src/
-│       ├── routes/       # auth, records, requests, leases, audit, notifications
-│       ├── services/
-│       │   ├── record.service.ts
-│       │   ├── request.service.ts
-│       │   ├── approval.service.ts
-│       │   ├── lease.service.ts
-│       │   ├── audit.service.ts
-│       │   ├── identity.service.ts      ← integration seam
-│       │   ├── keeper.service.ts        ← integration seam
-│       │   └── notification.service.ts  ← integration seam
-│       ├── middleware/   # requireAuth, requireRole, errorHandler
-│       ├── jobs/         # lease-scheduler (60s sweeps: expiry + renewal)
-│       ├── policy/       # lease-policy (caps + clamps)
-│       └── server.ts
-├── shared/            # DTO + enum types shared across frontend and backend
-├── seed/              # Prisma seed script (tsx)
-├── docker-compose.yml # postgres + backend + frontend with dev volumes
-└── .env.example
-```
-
-**Flow at a glance**
-
-```
-browser ── HTTP(S) ──▶ Vite dev server (:5173)
-                        │
-                        │  /api/* proxied via BACKEND_URL
-                        ▼
-                       Express (:4000)
-                        │
-                        ├── middleware/auth (JWT → UserIdentity)
-                        ├── services/ (record, request, approval, lease, audit)
-                        │       │
-                        │       ▼
-                        │     Prisma ──▶ Postgres (:5432)
-                        │
-                        └── jobs/lease-scheduler (every 60s)
-                                │
-                                ├── runExpirySweep → expireLease
-                                └── runRenewalSweep → promptRenewal
+├── backend/                    # Express API
+│   ├── src/
+│   │   ├── services/           # Business logic + integration seams
+│   │   │   ├── identity.service.ts (Entra ID seam)
+│   │   │   ├── keeper.service.ts (Keeper Commander seam)
+│   │   │   ├── notification.service.ts (Teams Bot seam)
+│   │   │   ├── record.service.ts
+│   │   │   ├── request.service.ts
+│   │   │   ├── approval.service.ts
+│   │   │   ├── lease.service.ts
+│   │   │   └── audit.service.ts
+│   │   ├── routes/             # API endpoints
+│   │   │   ├── auth.ts
+│   │   │   ├── records.ts
+│   │   │   ├── requests.ts (stubbed for Phase 3)
+│   │   │   ├── leases.ts (stubbed for Phase 3)
+│   │   │   ├── approvals.ts
+│   │   │   ├── audit.ts
+│   │   │   └── notifications.ts
+│   │   ├── middleware/         # Auth, role checks, error handling
+│   │   ├── models/             # TypeScript interfaces
+│   │   ├── policy/
+│   │   │   └── lease-policy.ts (8h max, 5min renewal window, etc.)
+│   │   ├── jobs/               # Scheduler tasks
+│   │   └── server.ts           # Express entry point
+│   ├── prisma/
+│   │   └── schema.prisma       # Database models
+│   └── Dockerfile
+│
+├── frontend/                   # React SPA
+│   ├── src/
+│   │   ├── components/         # UI components (placeholder)
+│   │   ├── pages/              # Route pages (stubbed for Phase 4)
+│   │   ├── services/           # API clients + Teams integration
+│   │   │   └── teamsService.ts (mock for dev; real TeamsJS in prod)
+│   │   ├── hooks/              # Custom React hooks
+│   │   ├── mocks/              # Seed users, mock auth
+│   │   └── App.tsx
+│   ├── index.html
+│   └── Dockerfile
+│
+├── shared/                     # Shared types
+│   └── types.ts                # DTOs, enums, interfaces
+│
+├── seed/
+│   └── seed.ts                 # Database seeding script
+│
+├── docker-compose.yml          # Postgres + backend + frontend
+├── .env.example                # Environment variables
+└── README.md                   # This file
 ```
 
 ---
 
-## Data model
+## Architecture: Tab + Chat Composition
 
-Prisma schema in [`backend/prisma/schema.prisma`](backend/prisma/schema.prisma). Core entities:
+Keeper-Shell follows **Microsoft's recommended Teams pattern**: separate the work canvas (your tab) from the communication canvas (Teams chat). They are composed via three mechanisms:
 
-- **User** — role: `REQUESTER | APPROVER | ADMIN`; `entraObjectId` is the Entra seam.
-- **Record** — the credential target. `status: AVAILABLE | PENDING_APPROVAL | LEASED | RENEWAL_PENDING | EXPIRED | LOCKED`; `keeperRecordUid` is the Keeper seam.
-- **Request** — a single access request. `status: PENDING | APPROVED | DENIED | EXPIRED | RELEASED | RENEWAL_PENDING`; `type: INITIAL | EXTENSION | RENEWAL`.
-- **AuditEvent** — immutable trail of every state transition. One of 13 `AuditAction` values.
-- **Notification** — backs the mock `NotificationService`; real deployments replace with Teams Adaptive Cards and drop this table.
+### 1. **Work Canvas (Tab)**
+- Records list, request form, approvals queue, lease management
+- Runs as a React SPA embedded in Teams
+- Standalone in browser for dev/testing
 
-Note: an "active lease" = `Request` with `status = APPROVED` and `leaseExpiresAt > now`. The `LEASED` value lives on `Record.status` only, reflecting the physical state of the record; the request's approval state is tracked separately.
+### 2. **Communication Canvas (Teams Chat)**
+- User-to-user messaging (approver ↔ requester)
+- Bot notifications (approval alerts, renewal prompts, expiry notices)
+- Managed entirely by Teams, not your app
 
----
+### 3. **Composition Bridges**
+- **Deep Links:** "Message Approver" button → opens chat without leaving tab
+- **Stageview:** Approval queue + relevant conversation visible side-by-side
+- **Bot Notifications:** Proactive Adaptive Cards sent to relevant users
+- **TeamsJS APIs:** App detects Teams context, reads user, switches theme
 
-## API
-
-Every route (except the two dev helpers below) requires `Authorization: Bearer <jwt>`.
-
-### Auth
-- `POST /api/auth/mock-login` `{ userId }` → `{ token, user }`
-- `GET /api/auth/me` → `{ user }`
-- `GET /api/auth/users` — all users (auth-only)
-- `GET /api/auth/resolve?email=...` — dev-only helper (no auth, disabled when `NODE_ENV=production`)
-
-### Records
-- `GET /api/records?q=...&environment=...&status=...`
-- `GET /api/records/:id` — includes active lease + last 5 history items
-
-### Requests
-- `POST /api/requests` `{ recordId, reason, requestedDurationMin, notes? }` → **201**
-- `GET /api/requests?status=&recordId=&requesterId=` — requesters see only their own
-- `GET /api/requests/:id`
-- `POST /api/requests/:id/approve` `{ approvedDurationMin? }` — approver/admin only; routes to extension approval if `type=EXTENSION`
-- `POST /api/requests/:id/deny` `{ reason? }` — approver/admin only
-- `POST /api/requests/:id/release` — requester only
-- `POST /api/requests/:id/extend` `{ requestedDurationMin }` → **201** (creates EXTENSION request)
-
-### Audit
-- `GET /api/audit?action=&recordId=&requestId=&actorId=` — admin only
-
-### Notifications
-- `GET /api/notifications` — current user's inbox
-- `POST /api/notifications/:id/read`
-
-### Leases (scheduler-facing)
-- `POST /api/leases/check-expiry` — admin (also runs automatically every 60s)
-- `POST /api/leases/send-renewals` — admin (also runs automatically every 60s)
+**See:** `ARCHITECTURE-TEAMS.md` (included) for detailed patterns, code examples, and swap-in instructions.
 
 ---
 
-## Lease lifecycle
+## Integration Seams
 
-```
-AVAILABLE
-  │
-  ▼ POST /api/requests
-PENDING_APPROVAL ─── deny ────▶ AVAILABLE
-  │
-  ▼ approve  (startLease issues one-time share, sets expiry, writes LEASE_STARTED + SHARE_ISSUED)
-LEASED
-  │
-  ├─▶ renewal window reached (scheduler)       ─▶ RENEWAL_PENDING
-  │        │
-  │        ├── POST /api/requests/:id/extend   ─▶ new EXTENSION request (PENDING)
-  │        │        │
-  │        │        ├── approve ─▶ parent.leaseExpiresAt += clamped(duration), record → LEASED
-  │        │        └── deny    ─▶ parent continues on original expiry
-  │        │
-  │        └── no action + expiry              ─▶ AVAILABLE (+ LEASE_EXPIRED audit, EXPIRY_NOTICE to requester)
-  │
-  ├─▶ POST /api/requests/:id/release           ─▶ AVAILABLE
-  │
-  └─▶ past leaseExpiresAt (scheduler)          ─▶ AVAILABLE (+ EXPIRY_NOTICE)
+Three clear integration points where real services swap in (no refactoring required):
+
+### 1. **Identity Service** (`backend/src/services/identity.service.ts`)
+**Current:** Mock JWT issuer  
+**Swap-in:** Azure Entra ID token validation  
+```typescript
+// Dev: return hardcoded user
+// Prod: validate JWT signature against Entra public keys, extract user object ID
 ```
 
-Every transition (a) updates `Request.status` and `Record.status` in a single Prisma transaction, (b) writes an `AuditEvent`, (c) emits a notification where relevant.
+### 2. **Keeper Service** (`backend/src/services/keeper.service.ts`)
+**Current:** In-memory mock vault  
+**Swap-in:** Keeper Commander one-time-share API  
+```typescript
+// Dev: generate mock share URLs
+// Prod: call Keeper Commander to create/revoke one-time shares
+```
+
+### 3. **Notification Service** (`backend/src/services/notification.service.ts`)
+**Current:** In-memory queue (polled by frontend)  
+**Swap-in:** Teams Bot Framework + Graph API  
+```typescript
+// Dev: store notifications in database, frontend polls /api/notifications
+// Prod: send Adaptive Cards via Teams Bot Framework to users
+```
+
+All three are **interface-based** (dependency injection). Mock ↔ real swap via environment variables. **Zero refactoring.**
 
 ---
 
-## Policy
+## How to Run
 
-[`backend/src/policy/lease-policy.ts`](backend/src/policy/lease-policy.ts) — single source of truth for all caps:
+### Prerequisites
+- Docker Desktop (Windows, Mac, or WSL2 on Windows)
+- Node.js 18+ (for local development without Docker)
 
-```ts
-export const LeasePolicy = {
-  maxDurationMinutes: 480,       // 8h hard cap on any single lease
-  defaultDurationMinutes: 30,
-  renewalWindowMinutes: 5,       // renewal prompt fires this far before expiry
-  maxExtensionMinutes: 240,      // 4h max extension per request
-  maxExtensionsPerLease: 3,
-  requireApprovalForExtension: true,
-};
-```
-
-All request / approval / extension paths call `clampDuration()` or `clampExtension()`. Changing this file is the entire policy surface.
-
----
-
-## Integration seams
-
-Three interfaces delimit the replaceable boundaries. Each file ships with a `Mock*` concrete class and exports a singleton typed as the interface. Swap-in = add the real client library, implement the interface, replace the exported singleton.
-
-### 1. Identity — [`backend/src/services/identity.service.ts`](backend/src/services/identity.service.ts)
-
-```ts
-export interface IIdentityService {
-  validateToken(token: string): Promise<UserIdentity>;
-  getUserGroups(userId: string): Promise<string[]>;
-  issueToken(userId: string): Promise<string>;
-}
-```
-
-- **Mock:** signs/decodes local JWTs, looks users up in Postgres.
-- **Real (Entra ID):**
-  1. `npm i @azure/msal-node jwks-rsa` in `backend`, add `@azure/msal-browser` in `frontend`.
-  2. Replace `validateToken` with JWKS validation against the Entra tenant's `/.well-known/openid-configuration`.
-  3. Replace `getUserGroups` with a Microsoft Graph `/me/memberOf` call.
-  4. `issueToken` is no longer needed (Entra issues tokens directly); remove `/api/auth/mock-login` + `/api/auth/resolve` on the backend and the `IdentityPicker` component on the frontend — use MSAL popup login in `App.tsx` instead.
-  5. Add `entraObjectId` population on first login to link Entra users to the `User` table.
-
-### 2. Vault — [`backend/src/services/keeper.service.ts`](backend/src/services/keeper.service.ts)
-
-```ts
-export interface IKeeperService {
-  createOneTimeShare(keeperRecordUid: string, ttlMinutes: number): Promise<OneTimeShare>;
-  removeOneTimeShare(shareLink: string): Promise<void>;
-}
-```
-
-- **Mock:** returns `https://mock-keeper.local/ots/<uid>/<uuid>` with a computed expiry. No real credentials are ever stored or fetched.
-- **Real (Keeper Commander):**
-  1. Install Keeper Commander (`pip install keepercommander`) in the backend image; add a headless config file mounted as a secret.
-  2. In `createOneTimeShare`, spawn `keeper one-time-share-create <recordUid> --expire <ttl>m` via `child_process.execFile`, parse the URL from stdout.
-  3. In `removeOneTimeShare`, call `keeper one-time-share-remove <shareLink>` (or its `record get --shares` + `share revoke` equivalent).
-  4. Populate `Record.keeperRecordUid` for each real record (either at creation time or via a one-off sync script hitting `keeper search`).
-
-### 3. Notifications — [`backend/src/services/notification.service.ts`](backend/src/services/notification.service.ts)
-
-```ts
-export interface INotificationService {
-  sendApprovalRequest(p: ApprovalCardParams): Promise<void>;
-  sendShareLink(p: ShareLinkParams): Promise<void>;
-  sendRenewalPrompt(p: RenewalPromptParams): Promise<void>;
-  sendExpiryNotice(p: ExpiryNoticeParams): Promise<void>;
-}
-```
-
-- **Mock:** writes rows into the `Notification` table; frontend polls `GET /api/notifications` every 10s for the bell.
-- **Real (Teams Adaptive Cards via Bot Framework / Microsoft Graph):**
-  1. Register a Bot Framework app registration; add `botframework-connector` + `botbuilder` to the backend.
-  2. Replace each `send*` method with a Bot Framework proactive message to the approver/requester's Teams channel, using an Adaptive Card JSON template per kind.
-  3. Adaptive Card actions (Approve/Deny/Extend) POST back to `/api/requests/:id/*` with the same Bearer JWT, so the flow survives the seam.
-  4. Delete the `Notification` model + `GET /api/notifications` route; the frontend bell component can be removed, since notifications live entirely in Teams.
-
-### Teams embedding
-
-The frontend intentionally has **no Teams SDK dependency**. In dev the app works standalone at `localhost:5173`. To embed as a Teams tab:
-
-1. `npm i @microsoft/teams-js` in `frontend`.
-2. Wrap `main.tsx` in `app.initialize()` and toggle a `useIsInTeams()` hook.
-3. In `AppShell`, hide the chrome sidebar + topbar when `isInTeams === true` and use Teams' own back nav.
-4. Add a Teams manifest (`manifest.json` + icons) and submit via Teams Developer Portal.
-
-None of this affects the API or services layer.
-
----
-
-## Development
+### Quick Start (Docker)
 
 ```bash
-# Install deps at the root (uses npm workspaces)
-npm install
+cd C:\Users\ben12\passkey\keeper-shell
 
-# Run stack
-docker compose up --build
+# Copy environment file
+cp .env.example .env
 
-# Regenerate Prisma client after schema changes
-docker compose exec backend npx prisma generate
+# Start all services (Postgres + backend + frontend)
+docker-compose up --build
 
-# Re-sync schema (dev; migrations are next step for prod)
-docker compose exec backend npx prisma db push
+# Wait for startup logs:
+# keeper-shell-postgres: ready to accept connections
+# keeper-shell-backend: listening on port 4000
+# keeper-shell-frontend: ready in X ms
 
-# Re-seed (wipes all data)
-docker compose exec backend npm run db:seed
-
-# Prisma Studio
-docker compose exec backend npm run db:studio  # http://localhost:5555
+# Open browser
+# Backend health check: http://localhost:4000/healthz
+# Frontend: http://localhost:5173 (or embedded in Teams)
 ```
 
-**Hot reload.** Backend uses `tsx watch`; frontend uses Vite HMR. Both source trees are host-mounted into the containers via `docker-compose.yml`, so edits land immediately.
+### First-Time Setup
 
-**Env vars.**
-| Var | Service | Purpose |
-| --- | --- | --- |
-| `DATABASE_URL` | backend | Postgres connection |
-| `JWT_SECRET` | backend | Signs mock JWTs — **rotate** when deploying |
-| `PORT` | backend | API port (default 4000) |
-| `FRONTEND_ORIGIN` | backend | CORS allowlist |
-| `NODE_ENV` | backend | `production` disables `/api/auth/resolve` |
-| `BACKEND_URL` | frontend | Internal Vite proxy target (Docker DNS) |
+1. **Database migration + seed:**
+   ```bash
+   docker exec keeper-shell-backend npx prisma migrate dev
+   docker exec keeper-shell-backend npm run seed
+   ```
 
-**Tests.** Services are injectable (interfaces + singleton exports), so unit tests against `request.service.ts` et al. can pass in-memory fakes without touching Postgres. No test runner is wired yet — that's a good first follow-up.
+2. **Mock login:**
+   - Frontend will show a user selector (seeded users from seed script)
+   - Pick a user (requester, approver, or admin)
+   - Granted a mock JWT token
 
-**Migrations → Production.** Phase 2 uses `prisma db push` for speed. Before prod: `npx prisma migrate dev --name init` to generate the migration files, commit them, then switch the Dockerfile CMD to `npx prisma migrate deploy`.
+3. **Try the workflow:**
+   - Requester: Records → request access → fill form → submit
+   - Approver: Switch user → Approvals queue → approve/deny
+   - See lease countdown, renewal prompt, expiry
+
+### Local Development (without Docker)
+
+```bash
+# Terminal 1: Start Postgres (Docker only)
+docker run -d -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+
+# Terminal 2: Backend
+cd backend
+npm install
+npm run dev  # TypeScript watch + Express at :4000
+
+# Terminal 3: Frontend
+cd frontend
+npm install
+npm run dev  # Vite at :5173
+```
 
 ---
 
-## Done criteria
+## What's Stubbed (Phase 2–5 Work)
 
-Verified end-to-end against the live stack (evidence captured during phase 6 validation):
-
-| # | Criterion | Status | Evidence |
-| --- | --- | --- | --- |
-| 1 | `docker compose up` starts Postgres + API + frontend and seeds the DB | ✅ | 3 containers healthy; `/healthz` 200; frontend HTTP 200; seed reports 5 users / 10 records / 33 audit events |
-| 2 | Select mock identity, see records, search/filter, request access, see request go to pending | ✅ | IdentityPicker → records table with 10 records; search `billing` narrows to 1; env chip `staging` narrows to 2 + shows "1 filter active"; **Request access** button POSTs → record flips to `PENDING_APPROVAL` |
-| 3 | Switch to approver, see pending request, approve, requester sees share link | ✅ | Dave's Approvals queue showed 2 cards incl. pending + extension; clicking **Approve** issued share link via `keeperService` mock, record flipped to `LEASED`, Alice received `SHARE_LINK` notification |
-| 4 | Lease countdown visible; renewal window triggers prompt | ✅ | `useCountdown` ticks 1Hz, turns red <60s or in renewal window; scheduler's `runRenewalSweep()` flipped seeded lease to `RENEWAL_PENDING` → `MyRequestsPage` auto-opened `RenewalPromptDialog` |
-| 5 | Releasing a lease returns record to available with audit trail | ✅ | `POST /release` → request `RELEASED`, record `AVAILABLE`, `LEASE_RELEASED` audit row + Keeper share revoked |
-| 6 | Lease expiry job auto-expires overdue leases | ✅ | Scheduler sweep reported `{expired: 1}` on a backdated lease; request → `EXPIRED`, record → `AVAILABLE`, `LEASE_EXPIRED` audit, `EXPIRY_NOTICE` notification |
-| 7 | Audit log shows complete event history | ✅ | 5 event types captured for a single request lifecycle: `REQUEST_CREATED → REQUEST_APPROVED → LEASE_STARTED → SHARE_ISSUED → LEASE_RELEASED`; extension flow adds `RENEWAL_PROMPTED → RENEWAL_REQUESTED → EXTENSION_APPROVED`; admin `/api/audit` filterable by action / record / request / actor |
-| 8 | All three integration seams documented with working mocks | ✅ | `IIdentityService` + `MockIdentityService`, `IKeeperService` + `MockKeeperService`, `INotificationService` + `MockNotificationService` — each a single file, each with swap-in steps in the section above |
-| 9 | README explains run, swap-in path, architecture | ✅ | This document |
+| Component | Phase | Status | Details |
+|-----------|-------|--------|---------|
+| Request creation + approval | 3 | Stubbed (501) | Wire form → POST /api/requests, approval logic, lease state |
+| Lease management | 3 | Stubbed (501) | Extend, release, renewal window logic |
+| Frontend pages | 4 | Scaffolded | Layout + components; wired to API in Phase 4 |
+| Background jobs | 5 | Stubbed | Expiry checker, renewal prompter (scheduler configured) |
+| Integration seams | 5 | Documented | Identity, Keeper, Notification ready to swap |
 
 ---
 
-## License
+## Timeline & Resource Estimate
 
-Private. Internal tool scaffold.
+| Phase | Work | Effort | Target Date |
+|-------|------|--------|-------------|
+| **1** | Scaffold + seams | Done | Complete |
+| **2** | Prisma + Docker + seed | 2 days | Week 1 |
+| **3** | Backend services (request, approval, lease, audit) | 4 days | Week 2 |
+| **4** | Frontend (pages, routing, API wiring) | 4 days | Week 2–3 |
+| **5** | Jobs + integration testing + README | 2 days | Week 3 |
+| **Swap-in** | Real Entra + Keeper + Teams Bot | 3 days | Week 4 (parallel) |
+
+**MVP (Phases 2–4):** 10 days → functional credential request workflow  
+**Production (Phase 5):** +3 days → swap real integrations + testing  
+
+**Total:** 2 weeks to working MVP + 1 week to production-ready with real Entra/Keeper/Teams.
+
+---
+
+## Key Features (Fully Specified, Implemented in Phases 2–5)
+
+### Records Management
+- Search records by name/system
+- Filter by environment, status
+- View record details + lease history
+- Status badges (Available, Pending Approval, Leased, Renewal Pending, Locked)
+
+### Access Requests
+- Submit request (reason required, duration dropdown + custom)
+- Real-time request status tracking
+- Request history with audit trail
+
+### Approval Workflow
+- Approver queue (pending requests only)
+- Approve with optional duration override
+- Deny with optional reason
+- Approval notifications to requester
+
+### Lease Management
+- Countdown timer (time remaining on lease)
+- Release early (returns credential to available)
+- Request extension (goes through approval again)
+- Renewal prompts (5 min before expiry, configurable)
+
+### Audit Log
+- All actions logged: request creation, approval, denial, lease started, share issued, renewal, expiry, record locked
+- Filterable by action, actor, timestamp
+- Admin-only view
+
+### Notifications
+- In-app bell icon (polls backend)
+- Approval requests (for approvers)
+- Share links (for requesters)
+- Renewal prompts
+- Expiry notices
+- Optional: Teams Bot Adaptive Cards (Phase 5)
+
+### Lease Policy (Enforced)
+- Max duration: 8 hours
+- Default duration: 30 minutes
+- Renewal window: 5 minutes before expiry
+- Max extension: 4 hours per extension
+- Max extensions per lease: 3
+
+---
+
+## Database Schema Summary
+
+```prisma
+User: id, displayName, email, role (REQUESTER|APPROVER|ADMIN)
+
+Record: id, name, systemName, environment, status, ownerId, approverGroupId, keeperRecordUid
+
+Request: id, recordId, requesterId, approverId, reason, requestedDuration, 
+         approvedDuration, status, leaseStartedAt, leaseExpiresAt, shareLink
+
+AuditEvent: id, requestId, action, actorId, timestamp
+
+Notification: id, userId, type, data, read, createdAt (for mock queue)
+```
+
+All relationships enforced at DB level. Migrations managed by Prisma.
+
+---
+
+## Teams Integration (Post-Build)
+
+Once Phase 5 is complete, integrate with real Teams:
+
+### 1. Register Teams Tab App
+- Create app manifest
+- Register with Azure AD
+- Deploy to SharePoint App Catalog or app store
+
+### 2. Swap Integration Seams
+```
+identity.service.ts: Mock JWT → Entra ID token validation
+keeper.service.ts: Mock vault → Keeper Commander API
+notification.service.ts: Mock queue → Teams Bot Framework + Graph API
+teamsService.ts: Mock context → Real TeamsJS SDK
+```
+
+### 3. Enable Teams Features
+- User identity from Teams context (no more user selector)
+- Deep links to chat (open conversations without leaving tab)
+- Stageview for side-panel chat
+- Bot notifications (Adaptive Cards in Teams chat)
+- Theme switching (light/dark/high contrast)
+
+**See:** `ARCHITECTURE-TEAMS.md` for detailed swap-in patterns and sample code.
+
+---
+
+## Deployment
+
+### Development
+```bash
+docker-compose up  # Postgres + backend + frontend
+```
+
+### Staging (Azure Container Registry)
+```bash
+docker build -t keeper-shell:latest backend/
+docker push myregistry.azurecr.io/keeper-shell:latest
+# Deploy to AKS or App Service
+```
+
+### Production (Microsoft Teams App Store)
+- Package as Teams app manifest
+- Register with Azure AD
+- Deploy backend to App Service + Azure Database for PostgreSQL
+- Deploy frontend to Static Web Apps or CDN
+
+**Post-build task:** Deployment guide in README (Phase 5).
+
+---
+
+## What You Need to Know (For Approval)
+
+### ✅ Strengths
+- **Well-specified:** Every screen, every API route, every state transition is documented
+- **Decoupled:** Mock/real services swap cleanly; Entra/Keeper/Teams integration is localized
+- **MVP-ready:** Phases 2–4 deliver functional credential workflow in 2 weeks
+- **Teams-native:** Follows Microsoft's composition pattern; not a fragile custom chat hack
+- **Auditable:** Every action logged; admin view of all events
+- **Testable:** Clear service boundaries; unit + integration tests straightforward
+
+### Risks (Mitigated)
+- **Keeper Commander API:** Not yet integrated; mock is in place; 2-day swap-in (Phase 5)
+- **Teams Bot registration:** Not yet done; seam documented; 1-day setup (Phase 5)
+- **Entra ID:** Currently mock JWT; seam ready; 1-day swap-in (Phase 5)
+- **Database scale:** SQLite in dev, Postgres in prod; Prisma handles both; no refactoring
+
+### Cost Estimate
+- **Dev/staging:** Docker Compose + local Postgres (free)
+- **Production:** Azure App Service (B2 tier ~$100/mo) + PostgreSQL (flexible server ~$50/mo) + Storage (~$10/mo)
+- **Teams licensing:** Standard (no additional cost; part of Microsoft 365)
+
+---
+
+## Getting Started (Next Steps)
+
+### For Manager/Stakeholder
+1. Review this README (5 min read)
+2. Review `ARCHITECTURE-TEAMS.md` (10 min; optional)
+3. Approve Phase 2 start
+4. Resource request: 1 engineer, 4 weeks (2 weeks MVP, 2 weeks integration + testing)
+
+### For Engineer (starting Phase 2)
+1. Ensure Docker Desktop is running
+2. Clone/navigate to `C:\Users\ben12\passkey\keeper-shell\`
+3. Run `docker-compose up --build`
+4. Verify backend `/healthz` responds
+5. Proceed to Phase 2 tasks: Prisma migration + seed script
+
+### Questions?
+- Architecture details → See `ARCHITECTURE-TEAMS.md`
+- Integration seams → See comments in `backend/src/services/`
+- Build sequencing → See Phase 2–5 section below
+
+---
+
+## Phase 2–5 Build Details
+
+### Phase 2: Prisma Migration + Seed (2 days)
+- Run `prisma migrate dev` (creates tables)
+- Run seed script (populates demo data)
+- Verify `docker-compose up` produces healthy Postgres
+- Verify `GET /api/records` returns seeded records
+
+### Phase 3: Backend Services (4 days)
+- Implement `record.service.ts`, `request.service.ts`, `approval.service.ts`, `lease.service.ts`
+- Implement state transitions + audit logging
+- Wire routes to services
+- Implement scheduler jobs (expiry + renewal)
+- POST `/api/requests` creates request and triggers notification mock
+
+### Phase 4: Frontend (4 days)
+- Implement shell layout (sidebar, navbar, Fluent UI theme)
+- Implement pages: Records List, Record Detail, Request Modal, My Requests, Approvals Queue, Audit Log
+- Implement notifications panel + mock user selector
+- Wire all pages to backend API
+- Test full workflow: request → approve → lease → renew → expire
+
+### Phase 5: Integration + Testing (2 days)
+- Implement background jobs (manual test of expiry + renewal)
+- Write integration tests (request → approval → lease lifecycle)
+- Document integration seams (how to swap in real Entra/Keeper/Teams)
+- Prepare README for swap-in phase
+
+---
+
+## Glossary
+
+| Term | Definition |
+|------|-----------|
+| **Lease** | Time-limited access to a credential; created when request is approved |
+| **Share Link** | One-time URL from Keeper to access credential; sent to requester |
+| **Renewal Window** | Time before lease expiry when renewal is prompted (default 5 min) |
+| **Extension** | Request to extend an active lease beyond original expiry |
+| **Integration Seam** | Interface/service boundary where real implementation swaps in |
+| **Keeper Commander** | Keeper's vault API; used to create/revoke one-time-share credentials |
+| **Entra ID** | Microsoft's identity provider; validates user tokens (currently mocked) |
+| **Teams Bot Framework** | Microsoft's API for sending messages to Teams users |
+| **Adaptive Card** | Microsoft's interactive card format for Teams notifications |
+
+---
+
+## FAQ
+
+**Q: Can I test this without Teams?**  
+A: Yes. Phases 2–4 run entirely in a browser at localhost:5173 with mock identity + notifications. Teams integration is Phase 5 + post-build.
+
+**Q: What if Keeper Commander API is delayed?**  
+A: Mock is in place. You get a fully working workflow with fake share links. Swap in real API later (1-day task, Phase 5).
+
+**Q: Can approvers deny requests?**  
+A: Yes. Implemented in Phase 3. Request goes to DENIED, record returns to AVAILABLE.
+
+**Q: What happens when a lease expires?**  
+A: Background job runs every 60s, checks for overdue leases, transitions to AVAILABLE, sends expiry notice.
+
+**Q: Can I see who currently holds a credential?**  
+A: Yes. Record detail view shows current leaseholder + countdown timer.
+
+**Q: Is this HIPAA/SOC2 compliant?**  
+A: Audit trail is in place. Encryption at rest/in transit requires Keeper + Entra setup (Phase 5 task).
+
+---
+
+## Support & Escalation
+
+- **Architecture questions:** Review ARCHITECTURE-TEAMS.md
+- **Stuck on Phase 2–3:** Check backend/src/services/ comments (integration seams documented)
+- **Stuck on Phase 4:** Check frontend/src/services/teamsService.ts (mock signature provided)
+- **Real Entra/Keeper/Teams swap:** See ARCHITECTURE-TEAMS.md "Integration Seams" section
+
+---
+
+## Summary for Decision-Makers
+
+| Aspect | Status |
+|--------|--------|
+| **MVP Timeline** | 2 weeks (Phases 2–4) |
+| **Full Integration** | 3 weeks (Phases 2–5) |
+| **Production Ready** | 4 weeks (includes swap-in + testing) |
+| **Code Quality** | Fully typed (TypeScript), service-based architecture, audit logged |
+| **Risk Mitigation** | Integration seams documented, mocks in place, zero refactoring on swap |
+| **Team Capacity** | 1 engineer can execute full timeline |
+| **Go/No-Go** | Ready to proceed Phase 2 |
+
+---
+
+**Questions? Contact the engineering team or review ARCHITECTURE-TEAMS.md for detailed patterns.**
+
+Last Updated: 2026-04-15  
+Phase 1 Status: Complete  
+Next Phase: Phase 2 (Prisma + Docker + Seed)
