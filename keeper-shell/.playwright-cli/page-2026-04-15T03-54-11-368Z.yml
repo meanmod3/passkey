@@ -1,0 +1,82 @@
+- generic [ref=e47]:
+  - complementary [ref=e48]:
+    - generic [ref=e49]: PASSKEY
+    - navigation [ref=e50]:
+      - button "My Requests" [ref=e51] [cursor=pointer]:
+        - img [ref=e52]
+        - generic [ref=e54]: My Requests
+      - button "Notifications 2" [ref=e143] [cursor=pointer]:
+        - img [ref=e56]
+        - generic [ref=e58]: Notifications
+        - generic [ref=e59]: "2"
+    - generic [ref=e60]:
+      - img [ref=e63]
+      - generic [ref=e68]: No passkey active
+      - generic [ref=e69]: Select a record to request access
+  - main [ref=e70]:
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - generic [ref=e75]:
+          - img [ref=e77]
+          - textbox "Search" [ref=e79]
+        - button "Sort by Name" [ref=e80] [cursor=pointer]:
+          - text: Sort by Name
+          - img [ref=e81]
+      - list [ref=e84]:
+        - listitem [ref=e85]:
+          - button "Production 4 records 2 Available · 1 On Hold · 1 Closed" [ref=e86] [cursor=pointer]:
+            - img [ref=e88]
+            - img [ref=e91]
+            - generic [ref=e93]:
+              - generic [ref=e94]: Production
+              - generic [ref=e95]: 4 records
+            - generic "2 Available · 1 On Hold · 1 Closed" [ref=e96]:
+              - img "On Hold" [ref=e97]
+              - img "Closed" [ref=e98]
+              - img "Available" [ref=e99]
+              - img "Available" [ref=e100]
+        - listitem [ref=e101]:
+          - button "Staging 2 records 1 Available · 1 On Hold" [ref=e102] [cursor=pointer]:
+            - img [ref=e104]
+            - img [ref=e107]
+            - generic [ref=e109]:
+              - generic [ref=e110]: Staging
+              - generic [ref=e111]: 2 records
+            - generic "1 Available · 1 On Hold" [ref=e112]:
+              - img "Available" [ref=e113]
+              - img "On Hold" [ref=e114]
+        - listitem [ref=e115]:
+          - button "Development 2 records 2 Available" [active] [ref=e116] [cursor=pointer]:
+            - img [ref=e144]
+            - img [ref=e121]
+            - generic [ref=e123]:
+              - generic [ref=e124]: Development
+              - generic [ref=e125]: 2 records
+            - generic "2 Available" [ref=e126]:
+              - img "Available" [ref=e127]
+              - img "Available" [ref=e128]
+          - list [ref=e146]:
+            - listitem [ref=e147]:
+              - button "Dev Postgres Available Available" [ref=e148] [cursor=pointer]:
+                - img [ref=e150]
+                - generic [ref=e153]: Dev Postgres
+                - generic [ref=e154]:
+                  - generic [ref=e155]: Available
+                  - img "Available" [ref=e156]
+            - listitem [ref=e157]:
+              - button "Dev Redis Available Available" [ref=e158] [cursor=pointer]:
+                - img [ref=e160]
+                - generic [ref=e163]: Dev Redis
+                - generic [ref=e164]:
+                  - generic [ref=e165]: Available
+                  - img "Available" [ref=e166]
+        - listitem [ref=e129]:
+          - button "Shared 2 records 2 Available" [ref=e130] [cursor=pointer]:
+            - img [ref=e132]
+            - img [ref=e135]
+            - generic [ref=e137]:
+              - generic [ref=e138]: Shared
+              - generic [ref=e139]: 2 records
+            - generic "2 Available" [ref=e140]:
+              - img "Available" [ref=e141]
+              - img "Available" [ref=e142]

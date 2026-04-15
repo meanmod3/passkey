@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Typography */
+  --font-sans: 'Manrope', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', 'Consolas', monospace;
+
+  /* Light theme — all greys, no true black */
+  --surface: #ffffff;
+  --surface-elevated: #f7f7f9;   /* sidebar / drawer separation by shade, not stroke */
+  --surface-hover: #f0f1f4;
+  --surface-hover-strong: #e6e7ec;
+  --surface-selected: #4f46e5;
+  --surface-selected-soft: #eef2ff;
+
+  /* Only used on actual controls (buttons/inputs) and the selected-row stroke. */
+  --border: #e5e7eb;
+  --border-strong: #c7c7ce;
+
+  /* Text — dark grey, never #000 */
+  --text: #27272a;
+  --text-muted: #71717a;
+  --text-subtle: #a1a1aa;
+
+  /* Status colors */
+  --status-available: #16a34a;
+  --status-busy: #eab308;
+  --status-dnd: #dc2626;
+  --status-warning: #f97316;
+  --status-idle: #9ca3af;
+  --status-offline: #71717a;
+
+  /* Accent */
+  --accent: #4f46e5;
+  --accent-dark: #4338ca;
+  --accent-soft: #eef2ff;
+
+  /* Teams purple hint — used sparingly on "via Teams" cues */
+  --teams-purple: #6264a7;
+  --teams-purple-soft: #eceafb;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --surface: #26262c;           /* dark grey, not black */
+  --surface-elevated: #2d2d35;
+  --surface-hover: #353540;
+  --surface-hover-strong: #3f3f4c;
+  --surface-selected: #6366f1;
+  --surface-selected-soft: #34344a;
+
+  --border: #3a3a42;
+  --border-strong: #52525b;
+
+  --text: #e4e4e7;
+  --text-muted: #a1a1aa;
+  --text-subtle: #71717a;
+
+  --status-available: #22c55e;
+  --status-busy: #facc15;
+  --status-dnd: #f87171;
+  --status-warning: #fb923c;
+  --status-idle: #a1a1aa;
+  --status-offline: #71717a;
+
+  --accent: #8b8cf5;
+  --accent-dark: #a5a6f7;
+  --accent-soft: #34344a;
+
+  --teams-purple: #a6a7ee;
+  --teams-purple-soft: #3a3a58;
+
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
+  color: var(--text);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 120ms linear, color 120ms linear;
+}
+
+code, pre, .font-mono, .ks-mono {
+  font-family: var(--font-mono);
+}
+
+/* Scrollbar — subtle, no pure black */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 140, 0.3);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 140, 0.55); background-clip: content-box; }
+
+/* Force our fonts through Fluent. Root height is scoped below so portal providers
+   used by Dropdown/Listbox don't become full-screen click interceptors. */
+.fui-FluentProvider {
+  font-family: var(--font-sans) !important;
+}
+
+.ks-root-shell,
+.ks-root-shell > .fui-FluentProvider {
+  height: 100%;
+}
+
+/* Reset native button styling for our hand-rolled buttons (folder rows, nav, etc.).
+   Fluent <Button> components are unaffected — they ship their own CSS-in-JS styling.
+   Note: padding is NOT reset here so Tailwind's px-3/py-3 utilities apply normally. */
+button:not([class*='fui-']) {
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Pill-shaped, borderless search bar */
+.ks-search > .fui-Input,
+.ks-search.fui-Input,
+.fui-Input.ks-search {
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: var(--surface-hover) !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+.ks-search .fui-Input,
+.ks-search input {
+  border: 0 !important;
+  border-radius: 9999px !important;
+}
+.ks-search input {
+  color: var(--text-muted) !important;
+  caret-color: var(--text-muted) !important;
+}
+.ks-search input::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1 !important;
+}
+[data-theme='dark'] .ks-search input {
+  color: var(--text) !important;
+  caret-color: var(--text) !important;
+}
+.ks-search::after {
+  display: none !important;
+}
+/* Fluent renders its bottom border via ::after on the Input root */
+.fui-Input.ks-search::after,
+.ks-search > .fui-Input::after {
+  display: none !important;
+}
+
+/* All Fluent dropdowns: pill-shaped, borderless, surface-hover background.
+   Targets both the trigger button root and its underline pseudo-element. */
+.fui-Dropdown {
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background-color: var(--surface-hover) !important;
+  min-width: auto !important;
+}
+.fui-Dropdown::after,
+.fui-Dropdown::before {
+  display: none !important;
+}
+.fui-Dropdown > button,
+.fui-Dropdown__listbox-trigger {
+  border: 0 !important;
+  border-radius: 9999px !important;
+  background: transparent !important;
+}
+/* Listbox panel — keep small radius, no border so it floats cleanly */
+.fui-Listbox {
+  border: 0 !important;
+  border-radius: 12px !important;
+}

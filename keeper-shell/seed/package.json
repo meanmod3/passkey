@@ -1,0 +1,14 @@
+{
+  "name": "@keeper-shell/seed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "seed.ts",
+  "dependencies": {
+    "@prisma/client": "^5.14.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5"
+  }
+}

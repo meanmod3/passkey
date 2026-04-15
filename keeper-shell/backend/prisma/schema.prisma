@@ -1,0 +1,157 @@
+// Prisma schema — matches the spec in the greenfield prompt verbatim.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String    @id @default(uuid())
+  displayName           String
+  email                 String    @unique
+  entraObjectId         String?   @unique // Entra integration seam
+  role                  Role      @default(REQUESTER)
+  /// Bypass the one-active-lease-per-user restriction. Admins flip this for
+  /// users who legitimately need multiple concurrent passkeys.
+  allowMultipleLeases   Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+
+  ownedRecords    Record[]  @relation("owner")
+  requests        Request[] @relation("requester")
+  approvals       Request[] @relation("approver")
+  auditEvents     AuditEvent[] @relation("actor")
+  notifications   Notification[]
+}
+
+enum Role {
+  REQUESTER
+  APPROVER
+  ADMIN
+}
+
+model Record {
+  id              String        @id @default(uuid())
+  name            String
+  systemName      String
+  environment     Environment
+  status          RecordStatus  @default(AVAILABLE)
+  ownerId         String
+  owner           User          @relation("owner", fields: [ownerId], references: [id])
+  approverGroupId String?
+  keeperRecordUid String?       // Keeper integration seam
+  /// When true, regular users can't see who currently holds the lease and
+  /// can't message them. Admins flip this for sensitive records.
+  hideBorrower    Boolean       @default(false)
+  requests        Request[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+enum Environment {
+  PRODUCTION
+  STAGING
+  DEVELOPMENT
+  SHARED
+}
+
+enum RecordStatus {
+  AVAILABLE
+  PENDING_APPROVAL
+  LEASED
+  RENEWAL_PENDING
+  EXPIRED
+  LOCKED
+}
+
+model Request {
+  id                      String        @id @default(uuid())
+  recordId                String
+  record                  Record        @relation(fields: [recordId], references: [id])
+  requesterId             String
+  requester               User          @relation("requester", fields: [requesterId], references: [id])
+  approverId              String?
+  approver                User?         @relation("approver", fields: [approverId], references: [id])
+  reason                  String
+  notes                   String?
+  requestedDurationMin    Int
+  approvedDurationMin     Int?
+  status                  RequestStatus @default(PENDING)
+  type                    RequestType   @default(INITIAL)
+  leaseStartedAt          DateTime?
+  leaseExpiresAt          DateTime?
+  renewalWindowStart      DateTime?
+  shareLink               String?       // One-time share URL from Keeper
+  shareLinkExpiresAt      DateTime?
+  parentRequestId         String?       // For renewal/extension requests
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  auditEvents             AuditEvent[]
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+  EXPIRED
+  RELEASED
+  RENEWAL_PENDING
+}
+
+enum RequestType {
+  INITIAL
+  EXTENSION
+  RENEWAL
+}
+
+model AuditEvent {
+  id          String        @id @default(uuid())
+  requestId   String?
+  request     Request?      @relation(fields: [requestId], references: [id])
+  action      AuditAction
+  actorId     String
+  actor       User          @relation("actor", fields: [actorId], references: [id])
+  detail      String?
+  createdAt   DateTime      @default(now())
+}
+
+enum AuditAction {
+  REQUEST_CREATED
+  REQUEST_APPROVED
+  REQUEST_DENIED
+  LEASE_STARTED
+  SHARE_ISSUED
+  RENEWAL_PROMPTED
+  RENEWAL_REQUESTED
+  EXTENSION_APPROVED
+  EXTENSION_DENIED
+  LEASE_RELEASED
+  LEASE_EXPIRED
+  RECORD_LOCKED
+  RECORD_UNLOCKED
+}
+
+// In-app notification queue — backs the mock NotificationService.
+// Real implementation (Bot Framework / Graph) doesn't need this table.
+model Notification {
+  id           String   @id @default(uuid())
+  recipientId  String
+  recipient    User     @relation(fields: [recipientId], references: [id])
+  kind         NotificationKind
+  title        String
+  body         String
+  requestId    String?
+  recordId     String?
+  shareLink    String?
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+}
+
+enum NotificationKind {
+  APPROVAL_REQUEST
+  SHARE_LINK
+  RENEWAL_PROMPT
+  EXPIRY_NOTICE
+}

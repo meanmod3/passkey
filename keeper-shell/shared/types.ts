@@ -1,0 +1,174 @@
+// Shared DTO and enum types between frontend and backend.
+// These are kept narrow and stable — database-internal fields live in Prisma models.
+
+export type Role = 'REQUESTER' | 'APPROVER' | 'ADMIN';
+
+export type Environment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT' | 'SHARED';
+
+export type RecordStatus =
+  | 'AVAILABLE'
+  | 'PENDING_APPROVAL'
+  | 'LEASED'
+  | 'RENEWAL_PENDING'
+  | 'EXPIRED'
+  | 'LOCKED';
+
+export type RequestStatus =
+  | 'PENDING'
+  | 'APPROVED'
+  | 'DENIED'
+  | 'EXPIRED'
+  | 'RELEASED'
+  | 'RENEWAL_PENDING';
+
+export type RequestType = 'INITIAL' | 'EXTENSION' | 'RENEWAL';
+
+export type AuditAction =
+  | 'REQUEST_CREATED'
+  | 'REQUEST_APPROVED'
+  | 'REQUEST_DENIED'
+  | 'LEASE_STARTED'
+  | 'SHARE_ISSUED'
+  | 'RENEWAL_PROMPTED'
+  | 'RENEWAL_REQUESTED'
+  | 'EXTENSION_APPROVED'
+  | 'EXTENSION_DENIED'
+  | 'LEASE_RELEASED'
+  | 'LEASE_EXPIRED'
+  | 'RECORD_LOCKED'
+  | 'RECORD_UNLOCKED';
+
+export interface UserDTO {
+  id: string;
+  displayName: string;
+  email: string;
+  role: Role;
+  /** When true, this user can hold multiple concurrent passkeys (admin override). */
+  allowMultipleLeases?: boolean;
+}
+
+export interface RecordDTO {
+  id: string;
+  name: string;
+  systemName: string;
+  environment: Environment;
+  status: RecordStatus;
+  ownerId: string;
+  owner: UserDTO;
+  currentLease?: RequestDTO | null;
+  approverGroupId?: string | null;
+  /** Admin-toggled: when true, regular users don't see the borrower or message them */
+  hideBorrower?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RequestDTO {
+  id: string;
+  recordId: string;
+  record?: RecordDTO;
+  requesterId: string;
+  requester?: UserDTO;
+  approverId?: string | null;
+  approver?: UserDTO | null;
+  reason: string;
+  notes?: string | null;
+  requestedDurationMin: number;
+  approvedDurationMin?: number | null;
+  status: RequestStatus;
+  type: RequestType;
+  leaseStartedAt?: string | null;
+  leaseExpiresAt?: string | null;
+  renewalWindowStart?: string | null;
+  shareLink?: string | null;
+  shareLinkExpiresAt?: string | null;
+  parentRequestId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditEventDTO {
+  id: string;
+  requestId?: string | null;
+  action: AuditAction;
+  actorId: string;
+  actor?: UserDTO;
+  detail?: string | null;
+  createdAt: string;
+}
+
+export interface CreateRequestInput {
+  recordId: string;
+  reason: string;
+  requestedDurationMin: number;
+  notes?: string;
+}
+
+export interface ApproveRequestInput {
+  approvedDurationMin?: number;
+}
+
+export interface DenyRequestInput {
+  reason?: string;
+}
+
+export interface ExtendRequestInput {
+  requestedDurationMin: number;
+}
+
+export interface MockLoginInput {
+  userId: string;
+}
+
+export interface AuthMeResponse {
+  user: UserDTO;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: UserDTO;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Teams composition contracts — shared with the backend's notification.service
+ * and the frontend's teamsService. The keeper-shell tab is the work canvas;
+ * Teams chat is the communication surface. They are composed via these types.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+export interface TeamsContext {
+  userId: string;
+  displayName: string;
+  userObjectId?: string;
+  email?: string;
+  theme?: 'light' | 'dark' | 'highContrast';
+  locale?: string;
+  /** True when running embedded in Teams; false in a standalone browser */
+  isInTeams: boolean;
+}
+
+/**
+ * Adaptive Card payload contract — what the backend would post via Bot Framework
+ * for proactive 1:1 chat messages. We model the minimum surface the frontend
+ * needs to know about; the backend can serialize the full card.
+ */
+export interface AdaptiveCardSummary {
+  /** AdaptiveCard schema version (we target 1.4) */
+  version: '1.4';
+  title: string;
+  body: string;
+  /** Buttons rendered in the card; each is a deep link back into the tab or chat */
+  actions: Array<{ title: string; url: string }>;
+}
+
+export interface NotificationDTO {
+  id: string;
+  recipientId: string;
+  kind: 'APPROVAL_REQUEST' | 'SHARE_LINK' | 'RENEWAL_PROMPT' | 'EXPIRY_NOTICE';
+  title: string;
+  body: string;
+  requestId?: string;
+  recordId?: string;
+  shareLink?: string;
+  createdAt: string;
+  read: boolean;
+}

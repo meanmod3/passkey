@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: keeper
+      POSTGRES_PASSWORD: keeper
+      POSTGRES_DB: keepershell
+    ports:
+      - "5432:5432"
+    volumes:
+      - keeper_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keeper -d keepershell"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: "postgresql://keeper:keeper@postgres:5432/keepershell?schema=public"
+      JWT_SECRET: "dev-only-change-me"
+      PORT: 4000
+      FRONTEND_ORIGIN: "http://localhost:5173"
+      NODE_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    # Hot-reload: source mounted from host so tsx watch picks up edits without rebuild.
+    volumes:
+      - ./backend/src:/app/backend/src
+      - ./backend/prisma:/app/backend/prisma
+      - ./shared:/app/shared
+      - ./seed:/app/seed
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      # BACKEND_URL is used by the Vite dev-server proxy (inside the container, needs Docker DNS).
+      # The browser hits Vite at localhost:5173 and Vite proxies /api/* to BACKEND_URL.
+      BACKEND_URL: "http://backend:4000"
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/index.html:/app/frontend/index.html
+      - ./frontend/vite.config.ts:/app/frontend/vite.config.ts
+      - ./frontend/tailwind.config.js:/app/frontend/tailwind.config.js
+      - ./frontend/postcss.config.js:/app/frontend/postcss.config.js
+      - ./shared:/app/shared
+
+volumes:
+  keeper_pg_data:
