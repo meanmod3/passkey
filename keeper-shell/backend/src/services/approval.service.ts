@@ -2,11 +2,25 @@ import { prisma } from '../db.js';
 import { HttpError } from '../middleware/error.middleware.js';
 import { LeasePolicy, clampDuration, clampExtension } from '../policy/lease-policy.js';
 import { writeAuditEvent } from './audit.service.js';
+import { keeperService } from './keeper.service.js';
 import { startLease } from './lease.service.js';
 
 /**
  * Approve a PENDING request: pick approved duration (override or originally requested,
- * clamped to policy), then start the lease.
+ * clamped to policy), eager-sync against the Keeper vault (intent 144 Phase 1),
+ * then start the lease.
+ *
+ * Eager sync detects:
+ *   - Orphan: the Record.keeperRecordUid no longer resolves in Keeper → 409,
+ *     flip record.syncStatus=ORPHANED, write RECORD_ORPHANED audit, do NOT issue share
+ *   - Rotation: Keeper's revision > our keeperRevision → write CREDENTIAL_ROTATED
+ *     audit, update local cache, proceed with share
+ *   - Owner change: Keeper's owner != our keeperOwner → logged in the
+ *     CREDENTIAL_ROTATED detail (Phase 2 will add a dedicated notification)
+ *
+ * On a transient Keeper failure (network / 5xx) the thrown error propagates as
+ * HTTP 503 — we do NOT fall back to stale local data, because issuing a share
+ * against a rotated-but-unknown credential is worse than a visible failure.
  */
 export async function approveRequest(params: {
   requestId: string;
@@ -21,6 +35,68 @@ export async function approveRequest(params: {
   if (req.status !== 'PENDING') {
     throw new HttpError(409, `cannot approve request in status ${req.status}`);
   }
+
+  // ── Eager vault sync (Pattern 1) ──────────────────────────────────────────
+  // Fire BEFORE startLease so a rotation / orphan is caught before we commit
+  // lease + share-link state to the DB.
+  const record = req.record;
+  const keeperUid = record.keeperRecordUid ?? `mock-${record.id}`;
+
+  let keeperLatest;
+  try {
+    keeperLatest = await keeperService.getRecord(keeperUid);
+  } catch (err) {
+    // Transient failure: propagate as 503. No fallback to stale data.
+    const msg = err instanceof Error ? err.message : 'keeper vault unreachable';
+    throw new HttpError(503, `vault sync failed: ${msg}`);
+  }
+
+  if (keeperLatest === null) {
+    // Record deleted from Keeper. Flip local status, audit, and reject.
+    await prisma.record.update({
+      where: { id: record.id },
+      data: { syncStatus: 'ORPHANED', syncedAt: new Date() },
+    });
+    await writeAuditEvent({
+      action: 'RECORD_ORPHANED',
+      actorId: params.approverId,
+      requestId: req.id,
+      detail: `keeperUid=${keeperUid} (record no longer exists in Keeper)`,
+    });
+    throw new HttpError(
+      409,
+      `record orphaned in Keeper (uid ${keeperUid}); cannot issue share`,
+    );
+  }
+
+  // Detect rotation or owner change and audit accordingly.
+  const rotationDetected = keeperLatest.revision > record.keeperRevision;
+  const ownerChanged =
+    record.keeperOwner !== null && record.keeperOwner !== keeperLatest.owner;
+  if (rotationDetected) {
+    await writeAuditEvent({
+      action: 'CREDENTIAL_ROTATED',
+      actorId: params.approverId,
+      requestId: req.id,
+      detail:
+        `keeperUid=${keeperUid} revision ${record.keeperRevision}→${keeperLatest.revision}` +
+        (ownerChanged ? ` owner ${record.keeperOwner}→${keeperLatest.owner}` : ''),
+    });
+  }
+
+  // Refresh the local cache. We do this even when nothing changed so syncedAt
+  // moves forward — the admin vault-sync dashboard uses syncedAt to colour
+  // rows FRESH/STALE.
+  await prisma.record.update({
+    where: { id: record.id },
+    data: {
+      keeperRevision: keeperLatest.revision,
+      keeperOwner: keeperLatest.owner,
+      syncedAt: new Date(),
+      syncStatus: 'FRESH',
+    },
+  });
+  // ── End eager vault sync ──────────────────────────────────────────────────
 
   const approvedDuration = clampDuration(
     params.approvedDurationMin ?? req.requestedDurationMin,

@@ -6,6 +6,7 @@ import {
   History20Regular,
   Alert20Regular,
   Settings20Regular,
+  DatabaseSearch20Regular,
 } from '@fluentui/react-icons';
 import { useAuthStore } from '../stores/auth.store';
 import { useRightPanel } from '../stores/rightPanel.store';
@@ -74,6 +75,12 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
       label: 'Audit Log',
       icon: <History20Regular />,
       onClick: () => navigate('/audit'),
+      requiresRole: ['ADMIN'],
+    },
+    {
+      label: 'Vault sync',
+      icon: <DatabaseSearch20Regular />,
+      onClick: () => navigate('/admin/vault-sync'),
       requiresRole: ['ADMIN'],
     },
     {

@@ -8,6 +8,7 @@ import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AuditPage } from './pages/AuditPage';
 import { TerminalPage } from './pages/TerminalPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminVaultSyncPage } from './pages/AdminVaultSyncPage';
 import { api, ApiError } from './services/api';
 import { useAuthStore } from './stores/auth.store';
 import { useRightPanel } from './stores/rightPanel.store';
@@ -49,6 +50,7 @@ export default function App(): JSX.Element {
         <Route path="/audit" element={<AuditPage />} />
         <Route path="/terminal" element={<TerminalPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin/vault-sync" element={<AdminVaultSyncPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

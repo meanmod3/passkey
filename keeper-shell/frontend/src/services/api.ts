@@ -11,6 +11,7 @@ import type {
   ApproveRequestInput,
   DenyRequestInput,
   ExtendRequestInput,
+  VaultSyncStatusResponse,
 } from '@keeper-shell/shared';
 
 // In dev Vite proxies /api → http://localhost:4000 (vite.config.ts).
@@ -121,4 +122,9 @@ export const api = {
   listNotifications: () => request<{ notifications: NotificationDTO[] }>('/api/notifications'),
   markNotificationRead: (id: string) =>
     request<{ updated: number }>(`/api/notifications/${id}/read`, { method: 'POST' }),
+
+  // Admin — vault sync (intent 144 Phase 1). ADMIN-only; backend enforces via
+  // requireRole('ADMIN'). Read-only in this phase; Phase 2 adds manual-sync
+  // + reconcile-orphaned mutation endpoints.
+  getVaultSyncStatus: () => request<VaultSyncStatusResponse>('/api/admin/vault-sync-status'),
 };

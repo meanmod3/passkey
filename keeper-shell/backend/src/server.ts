@@ -7,6 +7,7 @@ import { requestsRouter } from './routes/requests.routes.js';
 import { leasesRouter } from './routes/leases.routes.js';
 import { auditRouter } from './routes/audit.routes.js';
 import { notificationsRouter } from './routes/notifications.routes.js';
+import { adminRouter } from './routes/admin.routes.js';
 import { errorHandler } from './middleware/error.middleware.js';
 import { startLeaseScheduler } from './jobs/lease-scheduler.js';
 
@@ -27,6 +28,7 @@ app.use('/api/requests', requestsRouter);
 app.use('/api/leases', leasesRouter);
 app.use('/api/audit', auditRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/admin', adminRouter);
 
 app.use(errorHandler);
 

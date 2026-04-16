@@ -45,9 +45,31 @@ model Record {
   /// When true, regular users can't see who currently holds the lease and
   /// can't message them. Admins flip this for sensitive records.
   hideBorrower    Boolean       @default(false)
+
+  // Vault-sync metadata (intent 144 Phase 1 — eager sync on approval writes
+  // these fields; Phase 2 background sync will update them on a schedule).
+  // keeperRevision increments in the Keeper vault on every change; we compare
+  // to detect rotations. syncedAt + syncStatus let admins see freshness at a
+  // glance via GET /api/admin/vault-sync-status.
+  keeperRevision  Int           @default(0)
+  keeperOwner     String?
+  syncedAt        DateTime      @default(now())
+  syncStatus      SyncStatus    @default(UNKNOWN)
+
   requests        Request[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+}
+
+// Vault-sync freshness of the local Record vs. the Keeper vault source of
+// truth. UNKNOWN = never synced (fresh seed row). FRESH = synced within the
+// staleSinceMinutes threshold. STALE = synced but past the threshold.
+// ORPHANED = the keeperRecordUid no longer resolves in Keeper (deleted).
+enum SyncStatus {
+  UNKNOWN
+  FRESH
+  STALE
+  ORPHANED
 }
 
 enum Environment {
@@ -131,6 +153,13 @@ enum AuditAction {
   LEASE_EXPIRED
   RECORD_LOCKED
   RECORD_UNLOCKED
+  // Vault-sync (intent 144 Phase 1 onward). CREDENTIAL_ROTATED fires when
+  // eager-sync detects the Keeper revision has advanced during approval.
+  // RECORD_ORPHANED fires when the keeperRecordUid no longer resolves.
+  // VAULT_SYNC_DETECTED_CHANGES is reserved for Phase 2 background sync.
+  CREDENTIAL_ROTATED
+  RECORD_ORPHANED
+  VAULT_SYNC_DETECTED_CHANGES
 }
 
 // In-app notification queue — backs the mock NotificationService.

@@ -1,9 +1,16 @@
 export type Role = 'REQUESTER' | 'APPROVER' | 'ADMIN';
-export type Environment = 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT' | 'SHARED';
+export type Environment = 'SHARED' | 'POD' | 'PHARMACY' | 'WIKI';
 export type RecordStatus = 'AVAILABLE' | 'PENDING_APPROVAL' | 'LEASED' | 'RENEWAL_PENDING' | 'EXPIRED' | 'LOCKED';
 export type RequestStatus = 'PENDING' | 'APPROVED' | 'DENIED' | 'EXPIRED' | 'RELEASED' | 'RENEWAL_PENDING';
 export type RequestType = 'INITIAL' | 'EXTENSION' | 'RENEWAL';
-export type AuditAction = 'REQUEST_CREATED' | 'REQUEST_APPROVED' | 'REQUEST_DENIED' | 'LEASE_STARTED' | 'SHARE_ISSUED' | 'RENEWAL_PROMPTED' | 'RENEWAL_REQUESTED' | 'EXTENSION_APPROVED' | 'EXTENSION_DENIED' | 'LEASE_RELEASED' | 'LEASE_EXPIRED' | 'RECORD_LOCKED' | 'RECORD_UNLOCKED';
+export type AuditAction = 'REQUEST_CREATED' | 'REQUEST_APPROVED' | 'REQUEST_DENIED' | 'LEASE_STARTED' | 'SHARE_ISSUED' | 'RENEWAL_PROMPTED' | 'RENEWAL_REQUESTED' | 'EXTENSION_APPROVED' | 'EXTENSION_DENIED' | 'LEASE_RELEASED' | 'LEASE_EXPIRED' | 'RECORD_LOCKED' | 'RECORD_UNLOCKED' | 'CREDENTIAL_ROTATED' | 'RECORD_ORPHANED' | 'VAULT_SYNC_DETECTED_CHANGES';
+/**
+ * Sync freshness of a local Record vs. the Keeper vault source of truth.
+ * UNKNOWN = never synced. FRESH = synced within staleSinceMinutes (30).
+ * STALE = synced but past the threshold. ORPHANED = keeperRecordUid no
+ * longer resolves.
+ */
+export type SyncStatus = 'UNKNOWN' | 'FRESH' | 'STALE' | 'ORPHANED';
 export interface UserDTO {
     id: string;
     displayName: string;
@@ -109,6 +116,34 @@ export interface AdaptiveCardSummary {
         title: string;
         url: string;
     }>;
+}
+export interface VaultSyncRecordDTO {
+    id: string;
+    name: string;
+    keeperUid: string | null;
+    status: RecordStatus;
+    syncStatus: SyncStatus;
+    syncedAt: string;
+    revision: number;
+    keeperOwner: string | null;
+    /** Derived: floor minutes since syncedAt, server-side */
+    ageMinutes: number;
+    /** Derived label: 'FRESH' / 'STALE' / 'ORPHANED' / 'UNKNOWN' */
+    healthLabel: 'FRESH' | 'STALE' | 'ORPHANED' | 'UNKNOWN';
+}
+export interface VaultSyncSummary {
+    totalRecords: number;
+    syncedInLastHour: number;
+    stale: number;
+    orphaned: number;
+}
+export interface VaultSyncStatusResponse {
+    summary: VaultSyncSummary;
+    records: VaultSyncRecordDTO[];
+    /** Server-stamped so the UI can display 'last refreshed' */
+    generatedAt: string;
+    /** Stale-threshold used (minutes); surfaced so the UI matches server semantics */
+    staleSinceMinutes: number;
 }
 export interface NotificationDTO {
     id: string;
